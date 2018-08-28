@@ -2,6 +2,8 @@ package org.dnastack.gatekeeper;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -11,9 +13,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
-import org.springframework.security.oauth2.provider.token.DefaultAccessTokenConverter;
-import org.springframework.security.oauth2.provider.token.RemoteTokenServices;
-import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
+import org.springframework.security.oauth2.provider.token.*;
+import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
+import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -38,43 +40,38 @@ public class GatekeeperApp extends ResourceServerConfigurerAdapter {
     @Override
     public void configure(HttpSecurity http) throws Exception {
         http.sessionManagement()
-            .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-
-        http.antMatcher("/**")
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
+            .antMatcher("/**")
             .authorizeRequests()
                 .anyRequest().authenticated().and()
-            .csrf().disable()
-            .addFilterBefore(new OncePerRequestFilter() {
-                @Override
-                protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-                    final String authHeader = request.getHeader("Authentication");
-                    if (authHeader != null) {
-                        final Matcher matcher = BEARER_HEADER.matcher(authHeader);
-                        if (matcher.matches()) {
-                            final String token = matcher.group(1);
-                            // TODO validate token
-                            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken("user", token);
-                            SecurityContextHolder.getContext().setAuthentication(authentication);
-                            System.out.println("Logged in user with token [" + token + "].");
-                        }
-                    }
-                    filterChain.doFilter(request, response);
-                }
-            }, BasicAuthenticationFilter.class);
+            .csrf().disable();
     }
 
     @Override
     public void configure(ResourceServerSecurityConfigurer resources) {
-        resources.tokenServices(tokenService()).stateless(true);
+        resources.tokenServices(tokenServices()).stateless(true);
     }
 
-    private ResourceServerTokenServices tokenService() {
-        RemoteTokenServices tokenServices = new RemoteTokenServices();
-        tokenServices.setCheckTokenEndpointUrl("http://localhost:8080/oauth/check_token");
-        tokenServices.setClientId("acme");
-        tokenServices.setClientSecret("acmesecret");
-        tokenServices.setAccessTokenConverter(new DefaultAccessTokenConverter());
-        return tokenServices;
+    @Bean
+    public TokenStore tokenStore() {
+        return new JwtTokenStore(accessTokenConverter());
+    }
+
+    @Bean
+    public JwtAccessTokenConverter accessTokenConverter() {
+        final JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
+        // TODO set a keypair
+        converter.setSigningKey("123");
+        return converter;
+    }
+
+    @Bean
+    @Primary
+    public DefaultTokenServices tokenServices() {
+        final DefaultTokenServices defaultTokenServices = new DefaultTokenServices();
+        defaultTokenServices.setTokenStore(tokenStore());
+        defaultTokenServices.setSupportRefreshToken(true);
+        return defaultTokenServices;
     }
 
     public static void main(String[] args) {
