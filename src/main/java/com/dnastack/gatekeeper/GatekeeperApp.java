@@ -1,4 +1,4 @@
-package org.dnastack.gatekeeper;
+package com.dnastack.gatekeeper;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
