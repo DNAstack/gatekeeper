@@ -1,4 +1,2 @@
 server:
-  port: 8888
-  servlet:
-    context-path: /gatekeeper
+  port: 8082
