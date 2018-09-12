@@ -2,6 +2,7 @@ package com.dnastack.gatekeeper;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.zuul.EnableZuulProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +19,7 @@ import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 @SpringBootApplication
 @EnableResourceServer
 @EnableWebSecurity
+@EnableZuulProxy
 public class GatekeeperApp extends ResourceServerConfigurerAdapter {
 
     @Override

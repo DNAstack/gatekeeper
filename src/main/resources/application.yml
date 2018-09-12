@@ -1,2 +1,7 @@
 server:
   port: 8082
+zuul:
+  routes:
+    cow:
+      path: /cow/**
+      url: http://cow.org
