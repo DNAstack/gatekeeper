@@ -28,7 +28,7 @@ public class GatekeeperApp extends ResourceServerConfigurerAdapter {
             .sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
             .antMatcher("/**")
             .authorizeRequests()
-                .anyRequest().authenticated().and()
+            .anyRequest().authenticated().and()
             .csrf().disable();
     }
 

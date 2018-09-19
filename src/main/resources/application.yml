@@ -2,6 +2,6 @@ server:
   port: 8082
 zuul:
   routes:
-    cow:
-      path: /cow/**
-      url: http://cow.org
+    main:
+      path: /**
+      url: http://fake-mssng-beacon.staging.dnastack.com/protected
