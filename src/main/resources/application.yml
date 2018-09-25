@@ -3,5 +3,5 @@ server:
 zuul:
   routes:
     main:
-      path: /**
+      path: /beacon/**
       url: http://fake-mssng-beacon.staging.dnastack.com/protected
