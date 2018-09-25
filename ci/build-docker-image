@@ -12,9 +12,9 @@ target_image_name=$1
 app_name=$2
 app_version=$3
 
-./mvnw versions:set -DnewVersion=${app_version}
-./mvnw clean package
-./mvnw versions:revert
+mvn versions:set -DnewVersion=${app_version}
+mvn clean package
+mvn versions:revert
 
 # This script does all its staging in a directory called target for easy cleanup and effective .gitignore.
 mkdir -p ci/impl/target
