@@ -2,6 +2,11 @@ server:
   port: 8082
 zuul:
   routes:
-    main:
+    dynamic:
       path: /beacon/**
-      url: http://fake-mssng-beacon.staging.dnastack.com/protected
+      # see GatekeeperProxyDecider for where the target is calculated
+      url: http://route-created-by-rules/
+
+gatekeeper:
+  beaconServer:
+    url: http://fake-mssng-beacon.staging.dnastack.com/
