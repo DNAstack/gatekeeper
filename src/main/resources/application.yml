@@ -10,3 +10,7 @@ zuul:
 gatekeeper:
   beaconServer:
     url: http://fake-mssng-beacon.staging.dnastack.com/
+
+logging:
+  level:
+    com.dnastack: DEBUG
