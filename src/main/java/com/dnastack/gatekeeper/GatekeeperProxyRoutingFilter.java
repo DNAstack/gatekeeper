@@ -10,6 +10,7 @@ import org.springframework.cloud.netflix.zuul.filters.support.FilterConstants;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,6 +44,7 @@ public class GatekeeperProxyRoutingFilter extends ZuulFilter {
     public Object run() throws ZuulException {
         RequestContext ctx = RequestContext.getCurrentContext();
         final HttpServletRequest request = ctx.getRequest();
+        final HttpServletResponse response = ctx.getResponse();
 
         String remoteHost = request.getRemoteHost();
         String originalUrl = request.getRequestURI();
@@ -51,7 +53,7 @@ public class GatekeeperProxyRoutingFilter extends ZuulFilter {
 
         URI targetUrl;
         try {
-            targetUrl = requestRouter.route(request);
+            targetUrl = requestRouter.route(request, response);
         } catch (URISyntaxException e) {
             throw new ZuulException(e, 500, "Routing logic failed");
         }

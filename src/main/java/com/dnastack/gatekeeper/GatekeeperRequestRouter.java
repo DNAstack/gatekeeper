@@ -1,11 +1,11 @@
 package com.dnastack.gatekeeper;
 
-import com.netflix.zuul.exception.ZuulException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -17,7 +17,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
     private String beaconServerUrl;
 
     @Override
-    public URI route(HttpServletRequest request) throws URISyntaxException {
+    public URI route(HttpServletRequest request, HttpServletResponse response) throws URISyntaxException {
 
         URI incomingUri = URI.create(request.getRequestURI());
         URI targetBaseUri = URI.create(beaconServerUrl);
@@ -26,7 +26,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
         if (path.startsWith("/beacon/")) {
             path = path.substring("/beacon".length());
         }
-        String publicOrProtected = choosePrefixBasedOnAuth(request);
+        String publicOrProtected = choosePrefixBasedOnAuth(request, response);
         path = publicOrProtected + "/" + path;
 
         return new URI(
@@ -37,10 +37,11 @@ public class GatekeeperRequestRouter implements RequestRouter {
                 incomingUri.getFragment());
     }
 
-    private String choosePrefixBasedOnAuth(HttpServletRequest request) {
+    private String choosePrefixBasedOnAuth(HttpServletRequest request, HttpServletResponse response) {
         if (request.getHeader("authorization") != null) {
             return "protected";
         } else {
+            response.setHeader("WWW-Authenticate", "Bearer");
             return "public";
         }
     }
