@@ -56,6 +56,8 @@ public class GatekeeperProxyRoutingFilter extends ZuulFilter {
             targetUrl = requestRouter.route(request, response);
         } catch (URISyntaxException e) {
             throw new ZuulException(e, 500, "Routing logic failed");
+        } catch (UnroutableRequestException e) {
+            throw new ZuulException(e, e.getStatus(), e.getMessage());
         }
 
         log.info("Routing {} request {} -> {}", request.getMethod(), originalUrl, targetUrl);

@@ -1,4 +1,4 @@
-package com.dnastack.wallet;
+package com.dnastack.gatekeeper;
 
 import io.restassured.RestAssured;
 import org.junit.Before;

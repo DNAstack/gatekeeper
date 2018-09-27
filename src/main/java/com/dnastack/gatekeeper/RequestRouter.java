@@ -14,5 +14,5 @@ public interface RequestRouter {
      * @param response
      * @return the backend URI that the request should be sent to
      */
-    URI route(HttpServletRequest request, HttpServletResponse response) throws URISyntaxException;
+    URI route(HttpServletRequest request, HttpServletResponse response) throws URISyntaxException, UnroutableRequestException;
 }

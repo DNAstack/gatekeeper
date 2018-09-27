@@ -1,6 +1,5 @@
-package com.dnastack.wallet;
+package com.dnastack.gatekeeper;
 
-import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 
 import java.util.stream.Stream;
