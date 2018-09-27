@@ -1,3 +1,10 @@
-FROM debian:jessie
+# Packages the application into a runnable Docker container
 
-ENTRYPOINT ["echo", "https://memegenerator.net/img/instances/81968797/i-dont-test-often-but-when-i-do-i-test-in-production.jpg"]
+FROM openjdk:8-jdk-alpine
+
+COPY target/e2e-tests.jar /
+COPY target/pom.xml /
+COPY target/mvnw /
+COPY target/.mvn /.mvn
+
+ENTRYPOINT ["./mvnw", "test"]
