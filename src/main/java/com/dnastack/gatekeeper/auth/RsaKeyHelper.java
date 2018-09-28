@@ -10,10 +10,9 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.dnastack.gatekeeper;
+package com.dnastack.gatekeeper.auth;
 
-import static org.springframework.security.jwt.codec.Codecs.b64Decode;
-import static org.springframework.security.jwt.codec.Codecs.utf8Encode;
+import org.bouncycastle.asn1.ASN1Sequence;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -25,7 +24,8 @@ import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.bouncycastle.asn1.ASN1Sequence;
+import static org.springframework.security.jwt.codec.Codecs.b64Decode;
+import static org.springframework.security.jwt.codec.Codecs.utf8Encode;
 
 /**
  * Reads RSA key pairs using BC provider classes but without the

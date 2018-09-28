@@ -1,9 +1,8 @@
-package com.dnastack.gatekeeper;
+package com.dnastack.gatekeeper.routing;
 
 import com.netflix.zuul.ZuulFilter;
 import com.netflix.zuul.context.RequestContext;
 import com.netflix.zuul.exception.ZuulException;
-import com.netflix.zuul.http.HttpServletRequestWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.netflix.zuul.filters.support.FilterConstants;

@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper;
+package com.dnastack.gatekeeper.routing;
 
 public class UnroutableRequestException extends Exception {
     private final int status;

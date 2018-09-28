@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper;
+package com.dnastack.gatekeeper.routing;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;

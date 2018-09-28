@@ -9,12 +9,18 @@ zuul:
 
 gatekeeper:
   beaconServer:
-    url: http://fake-mssng-beacon.staging.dnastack.com/
+    url: https://fake-mssng-beacon.staging.dnastack.com/
 
 logging:
   level:
     com.dnastack: DEBUG
 
+outbound:
+  # These are the development credentials corresponding to the development credentials in beacon server.
+  # These are NOT used in any deployments. They are only meant for quick developer startup.
+  basic:
+    username: mssng
+    password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
 inbound:
   jwt:
     algorithm: RS256
@@ -30,3 +36,7 @@ inbound:
       40X5kGJHax0ZU2KeaVAl8qrJSE7cOiv6TxnIcBJ00isVdLggzz72xK5R9R1e9MEO
       DQIDAQAB
       -----END PUBLIC KEY-----
+  # FIXME obviously we need to extract this to a database
+  # NOTE For the time being, please put the list of whitelisted email addresses here.
+  emailWhitelist:
+    - roasted@coffee.bean # example
