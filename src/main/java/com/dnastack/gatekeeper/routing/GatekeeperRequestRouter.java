@@ -17,6 +17,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -88,9 +89,15 @@ public class GatekeeperRequestRouter implements RequestRouter {
         Jws<Claims> jws;
         try {
             jws = jwtParser.parseClaimsJws(authToken);
+            
             log.info("Validated signature of inbound token {}", jws);
 
             final Claims claims = jws.getBody();
+            Date expiry = claims.getExpiration();
+            if (expiry.getTime() < new Date().getTime()) {
+            	setAccessDecision(response, "insufficient-credentials");
+            	return "public";
+            }
             Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
             final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
             if (hasWhitelistedEmailAddress) {
