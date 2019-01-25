@@ -1,25 +1,28 @@
 package com.dnastack.gatekeeper.routing;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.stream.Stream;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Date;
-import java.util.List;
-import java.util.stream.Stream;
 
 @Component
 @Slf4j
@@ -93,11 +96,6 @@ public class GatekeeperRequestRouter implements RequestRouter {
             log.info("Validated signature of inbound token {}", jws);
 
             final Claims claims = jws.getBody();
-            Date expiry = claims.getExpiration();
-            if (expiry.getTime() < new Date().getTime()) {
-            	setAccessDecision(response, "insufficient-credentials");
-            	return "public";
-            }
             Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
             final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
             if (hasWhitelistedEmailAddress) {
@@ -107,7 +105,11 @@ public class GatekeeperRequestRouter implements RequestRouter {
                 setAccessDecision(response, "insufficient-credentials");
                 return "public";
             }
-        } catch (JwtException ex) {
+        } catch (ExpiredJwtException ex) {
+        	setAccessDecision(response, "insufficient-credentials");
+        	return "public";
+        }       		
+        catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
     }
