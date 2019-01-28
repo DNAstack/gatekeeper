@@ -106,6 +106,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
                 return "public";
             }
         } catch (ExpiredJwtException ex) {
+        	System.out.println("Caught expired exception");
         	setAccessDecision(response, "insufficient-credentials");
         	return "public";
         }       		
