@@ -70,8 +70,6 @@ public class GatekeeperRequestRouterTest {
         String jsonWebToken = builder.compact();
         
         String value = "bearer " + jsonWebToken;
-      
-
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse(); 
@@ -91,9 +89,6 @@ public class GatekeeperRequestRouterTest {
         }
         
         assert(response.getHeader("X-Gatekeeper-Access-Decision").equals("expired-credentials"));
-
-
-
 	}
 
 }
