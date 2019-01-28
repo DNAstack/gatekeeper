@@ -107,7 +107,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
             }
         } catch (ExpiredJwtException ex) {
         	System.out.println("Caught expired exception");
-        	setAccessDecision(response, "insufficient-credentials");
+        	setAccessDecision(response, "expired-credentials");
         	return "public";
         }       		
         catch (JwtException ex) {
@@ -145,4 +145,8 @@ public class GatekeeperRequestRouter implements RequestRouter {
     static class Account {
         private String accountId, issuer, email;
     }
+
+    void setBeaconServerUrl(String string) {
+		beaconServerUrl = string;		
+	}
 }
