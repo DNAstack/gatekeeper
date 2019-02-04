@@ -1,29 +1,22 @@
 package com.dnastack.gatekeeper.routing;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
-import java.util.stream.Stream;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.*;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.JwtParser;
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.stream.Stream;
 
 @Component
 @Slf4j
@@ -168,4 +161,16 @@ public class GatekeeperRequestRouter implements RequestRouter {
     void setBeaconServerUrl(String string) {
 		beaconServerUrl = string;		
 	}
+
+	void setPublicPrefix(String prefix) {
+        this.publicPrefix = prefix;
+    }
+
+    void setRegisteredPrefix(String prefix) {
+        this.registeredPrefix = prefix;
+    }
+
+    void setControlledPrefix(String prefix) {
+        this.controlledPrefix = prefix;
+    }
 }

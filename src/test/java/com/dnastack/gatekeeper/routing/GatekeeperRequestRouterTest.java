@@ -45,6 +45,9 @@ public class GatekeeperRequestRouterTest {
 	@Before
 	public void setUp() throws Exception {
 		router.setBeaconServerUrl("http://example.com/beacon/");
+		router.setPublicPrefix("public");
+		router.setRegisteredPrefix("registered");
+		router.setControlledPrefix("controlled");
 	}
 
 	
