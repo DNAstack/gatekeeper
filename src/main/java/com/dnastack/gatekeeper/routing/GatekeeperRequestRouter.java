@@ -55,8 +55,8 @@ public class GatekeeperRequestRouter implements RequestRouter {
         if (path.startsWith("/beacon/")) {
             path = path.substring("/beacon".length());
         }
-        String publicOrProtected = choosePrefixBasedOnAuth(request, response);
-        path = publicOrProtected + "/" + path;
+        String pathPrefix = choosePrefixBasedOnAuth(request, response);
+        path = pathPrefix + path;
 
         return new URI(
                 targetBaseUri.getScheme(),
