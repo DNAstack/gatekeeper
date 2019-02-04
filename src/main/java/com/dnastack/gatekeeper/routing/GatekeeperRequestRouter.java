@@ -36,6 +36,15 @@ public class GatekeeperRequestRouter implements RequestRouter {
     @Value("${gatekeeper.beaconServer.url}")
     private String beaconServerUrl;
 
+    @Value("${gatekeeper.beaconServer.public-prefix}")
+    private String publicPrefix;
+
+    @Value("${gatekeeper.beaconServer.registered-prefix}")
+    private String registeredPrefix;
+
+    @Value("${gatekeeper.beaconServer.controlled-prefix}")
+    private String controlledPrefix;
+
     @Autowired
     private InboundEmailWhitelistConfiguration emailWhitelist;
 
@@ -74,7 +83,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
             final String accessDecision = String.format("requires-credentials %s $.accounts[*].email",
                                                         GOOGLE_ISSUER_URL);
             setAccessDecision(response, accessDecision);
-            return "public";
+            return publicPrefix;
         }
 
         String[] parts = authHeader.split(" ");
@@ -100,15 +109,15 @@ public class GatekeeperRequestRouter implements RequestRouter {
             final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
             if (hasWhitelistedEmailAddress) {
                 setAccessDecision(response, "access-granted");
-                return "protected";
+                return controlledPrefix;
             } else {
                 setAccessDecision(response, "insufficient-credentials");
-                return "public";
+                return registeredPrefix;
             }
         } catch (ExpiredJwtException ex) {
         	System.out.println("Caught expired exception");
         	setAccessDecision(response, "expired-credentials");
-        	return "public";
+        	return publicPrefix;
         }       		
         catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
