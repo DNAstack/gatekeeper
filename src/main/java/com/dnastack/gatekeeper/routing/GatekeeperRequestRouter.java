@@ -8,6 +8,7 @@ import java.util.stream.Stream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -83,7 +84,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
             final String accessDecision = String.format("requires-credentials %s $.accounts[*].email",
                                                         GOOGLE_ISSUER_URL);
             setAccessDecision(response, accessDecision);
-            return publicPrefix;
+            return publicPrefixOrAuthChallenge();
         }
 
         String[] parts = authHeader.split(" ");
@@ -117,10 +118,19 @@ public class GatekeeperRequestRouter implements RequestRouter {
         } catch (ExpiredJwtException ex) {
         	System.out.println("Caught expired exception");
         	setAccessDecision(response, "expired-credentials");
-        	return publicPrefix;
+            return publicPrefixOrAuthChallenge();
         }       		
         catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
+        }
+    }
+
+    private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
+        if (StringUtils.isEmpty(publicPrefix)) {
+            log.debug("Public prefix is empty. Sending 401 auth challenge.");
+            throw new UnroutableRequestException(401, "Anonymous requests not accepted.");
+        } else {
+            return publicPrefix;
         }
     }
 
