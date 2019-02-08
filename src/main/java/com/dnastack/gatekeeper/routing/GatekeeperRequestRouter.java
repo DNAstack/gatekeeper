@@ -100,33 +100,9 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
         ITokenAuthorizer tokenAuthorizer = new TokenAuthorizerImpl(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
 
-        String returnPrefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser);
+        String prefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser, response);
+        return prefixString;
 
-
-        Jws<Claims> jws;
-        try {
-            jws = jwtParser.parseClaimsJws(authToken);
-            
-            log.info("Validated signature of inbound token {}", jws);
-
-            final Claims claims = jws.getBody();
-            Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
-            final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
-            if (hasWhitelistedEmailAddress) {
-                setAccessDecision(response, "access-granted");
-                return controlledPrefix;
-            } else {
-                setAccessDecision(response, "insufficient-credentials");
-                return registeredPrefix;
-            }
-        } catch (ExpiredJwtException ex) {
-        	System.out.println("Caught expired exception");
-        	setAccessDecision(response, "expired-credentials");
-            return publicPrefixOrAuthChallenge();
-        }       		
-        catch (JwtException ex) {
-            throw new UnroutableRequestException(401, "Invalid token: " + ex);
-        }
     }
 
     private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {

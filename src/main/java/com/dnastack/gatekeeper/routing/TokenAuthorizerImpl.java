@@ -54,7 +54,7 @@ public class TokenAuthorizerImpl implements ITokenAuthorizer {
                 return authorizeTokenScope(authToken, claims);
             }
         } catch (ExpiredJwtException ex) {
-            System.out.println("Caught expired exception");
+            log.error("Caught expired exception");
             setAccessDecision(response, "expired-credentials");
             return publicPrefixOrAuthChallenge();
         } catch (JwtException ex) {
