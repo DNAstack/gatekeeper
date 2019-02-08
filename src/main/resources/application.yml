@@ -9,7 +9,7 @@ zuul:
 
 gatekeeper:
   beaconServer:
-    url: https://fake-mssng-beacon.staging.dnastack.com/
+    url: https://httpbin.org/anything/
     public-prefix: public
     # This default exists for easy upgrade of deployed beacons.
     # Can be removed when this is explicitly configured in Sinai and MSSNG gatekeeper deployments.

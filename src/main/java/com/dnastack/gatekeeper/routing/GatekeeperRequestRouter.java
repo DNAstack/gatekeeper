@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
@@ -22,16 +23,21 @@ import java.util.stream.Stream;
 @Slf4j
 public class GatekeeperRequestRouter implements RequestRouter {
 
-    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<Account>>() {
-
-    };
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
+
+    private ITokenAuthorizer tokenAuthorizer;
 
     @Value("${gatekeeper.beaconServer.url}")
     private String beaconServerUrl;
 
     @Value("${gatekeeper.beaconServer.public-prefix}")
     private String publicPrefix;
+
+    @Value("${gatekeeper.token.authorization.method}")
+    private String tokenAuthorizationMethod;
+
+    @Value("${gatekeeper.required.scope}")
+    private List<String> requiredScopeList;
 
     @Value("${gatekeeper.beaconServer.registered-prefix}")
     private String registeredPrefix;
@@ -47,6 +53,12 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
     @Autowired
     private JwtParser jwtParser;
+
+    @PostConstruct
+    public void GatekeeperRequestRouterInit() throws Exception {
+        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
+        this.tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
+    }
 
     @Override
     public URI route(HttpServletRequest request, HttpServletResponse response) throws URISyntaxException, UnroutableRequestException {
@@ -92,30 +104,8 @@ public class GatekeeperRequestRouter implements RequestRouter {
             throw new UnroutableRequestException(400, "Unsupported authorization scheme");
         }
 
-        Jws<Claims> jws;
-        try {
-            jws = jwtParser.parseClaimsJws(authToken);
-            
-            log.info("Validated signature of inbound token {}", jws);
-
-            final Claims claims = jws.getBody();
-            Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
-            final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
-            if (hasWhitelistedEmailAddress) {
-                setAccessDecision(response, "access-granted");
-                return controlledPrefix;
-            } else {
-                setAccessDecision(response, "insufficient-credentials");
-                return registeredPrefix;
-            }
-        } catch (ExpiredJwtException ex) {
-        	System.out.println("Caught expired exception");
-        	setAccessDecision(response, "expired-credentials");
-            return publicPrefixOrAuthChallenge();
-        }       		
-        catch (JwtException ex) {
-            throw new UnroutableRequestException(401, "Invalid token: " + ex);
-        }
+        String prefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser, response);
+        return prefixString;
     }
 
     private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
@@ -130,27 +120,6 @@ public class GatekeeperRequestRouter implements RequestRouter {
     private void setAccessDecision(HttpServletResponse response, String decision) {
         log.info("Access decision made: {}", decision);
         response.setHeader("X-Gatekeeper-Access-Decision", decision);
-    }
-
-    private Stream<String> extractGoogleEmailAddresses(Claims claims) {
-        final List<Account> accounts = objectMapper.convertValue(claims.get("accounts", List.class),
-                                                                 LIST_OF_ACCOUNT_TYPE);
-        return accounts.stream()
-                       .filter(this::issuedByGoogle)
-                       .flatMap(this::accountEmail);
-    }
-
-    private Stream<String> accountEmail(Account account) {
-        final String email = account.getEmail();
-        return (email == null) ? Stream.empty() : Stream.of(email);
-    }
-
-    private boolean issuedByGoogle(Account account) {
-        return GOOGLE_ISSUER_URL.equals(account.getIssuer());
-    }
-
-    private boolean isWhitelisted(String email) {
-        return emailWhitelist.getEmailWhitelist().contains(email);
     }
 
     @Data
@@ -172,5 +141,17 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
     void setControlledPrefix(String prefix) {
         this.controlledPrefix = prefix;
+    }
+
+    public void setTokenAuthorizationMethod(String tokenAuthorizationMethod) {
+        this.tokenAuthorizationMethod = tokenAuthorizationMethod;
+    }
+
+    public void setRequiredScopeList(List<String> requiredScopeList) {
+        this.requiredScopeList = requiredScopeList;
+    }
+
+    public void setEmailWhitelist(InboundEmailWhitelistConfiguration emailWhitelist) {
+        this.emailWhitelist = emailWhitelist;
     }
 }

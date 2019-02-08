@@ -3,7 +3,9 @@ package com.dnastack.gatekeeper.routing;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.Key;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
@@ -48,6 +50,12 @@ public class GatekeeperRequestRouterTest {
 		router.setPublicPrefix("public");
 		router.setRegisteredPrefix("registered");
 		router.setControlledPrefix("controlled");
+        router.setTokenAuthorizationMethod("scope");
+
+        List<String> requiredScopeList = new ArrayList<String>();
+        requiredScopeList.add("oneid");
+        router.setRequiredScopeList(requiredScopeList);
+        router.GatekeeperRequestRouterInit();
 	}
 
 	
