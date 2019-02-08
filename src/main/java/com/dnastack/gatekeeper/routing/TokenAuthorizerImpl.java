@@ -1,13 +1,13 @@
 package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -15,6 +15,12 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class TokenAuthorizerImpl implements ITokenAuthorizer {
+
+    public static final TypeReference<List<GatekeeperRequestRouter.Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<GatekeeperRequestRouter.Account>>() {
+
+    };
+
+    public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
     private String tokenAuthorizationMethod;
     private String controlledPrefix;
@@ -35,7 +41,7 @@ public class TokenAuthorizerImpl implements ITokenAuthorizer {
     }
 
     @Override
-    public String authorizeToken(String authToken, JwtParser jwtParser) throws UnroutableRequestException {
+    public String authorizeToken(String authToken, JwtParser jwtParser, HttpServletResponse response) throws UnroutableRequestException {
 
         try {
             Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
@@ -47,6 +53,10 @@ public class TokenAuthorizerImpl implements ITokenAuthorizer {
             } else {
                 return authorizeTokenScope(authToken, claims);
             }
+        } catch (ExpiredJwtException ex) {
+            System.out.println("Caught expired exception");
+            setAccessDecision(response, "expired-credentials");
+            return publicPrefixOrAuthChallenge();
         } catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
@@ -72,9 +82,6 @@ public class TokenAuthorizerImpl implements ITokenAuthorizer {
             //TODO: setAccessDecision(response, "insufficient-credentials");
             return registeredPrefix;
         }
-
-
-        return null;
     }
 
     private String authorizeTokenScope(String authToken, Claims claims) {
@@ -95,6 +102,10 @@ public class TokenAuthorizerImpl implements ITokenAuthorizer {
         }
     }
 
+    private boolean isWhitelisted(String email) {
+        return emailWhitelist.getEmailWhitelist().contains(email);
+    }
+
     private Stream<String> accountEmail(GatekeeperRequestRouter.Account account) {
         final String email = account.getEmail();
         return (email == null) ? Stream.empty() : Stream.of(email);
@@ -102,6 +113,20 @@ public class TokenAuthorizerImpl implements ITokenAuthorizer {
 
     private boolean issuedByGoogle(GatekeeperRequestRouter.Account account) {
         return GOOGLE_ISSUER_URL.equals(account.getIssuer());
+    }
+
+    private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
+        if (StringUtils.isEmpty(publicPrefix)) {
+            log.debug("Public prefix is empty. Sending 401 auth challenge.");
+            throw new UnroutableRequestException(401, "Anonymous requests not accepted.");
+        } else {
+            return publicPrefix;
+        }
+    }
+
+    private void setAccessDecision(HttpServletResponse response, String decision) {
+        log.info("Access decision made: {}", decision);
+        response.setHeader("X-Gatekeeper-Access-Decision", decision);
     }
 
 }
