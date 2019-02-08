@@ -24,6 +24,8 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
+    private ITokenAuthorizer tokenAuthorizer;
+
     @Value("${gatekeeper.beaconServer.url}")
     private String beaconServerUrl;
 
@@ -50,6 +52,11 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
     @Autowired
     private JwtParser jwtParser;
+
+    GatekeeperRequestRouter() throws Exception {
+        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
+        this.tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
+    }
 
     @Override
     public URI route(HttpServletRequest request, HttpServletResponse response) throws URISyntaxException, UnroutableRequestException {
@@ -94,9 +101,6 @@ public class GatekeeperRequestRouter implements RequestRouter {
         if (!authScheme.equalsIgnoreCase("bearer")) {
             throw new UnroutableRequestException(400, "Unsupported authorization scheme");
         }
-
-        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
-        ITokenAuthorizer tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
 
         String prefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser, response);
         return prefixString;

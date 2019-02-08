@@ -14,13 +14,13 @@ import java.util.List;
  */
 public class TokenAuthorizerFactory {
 
-    public ITokenAuthorizer getTokenAuthorizer(String tokenAuthorizationMethod, String controlledPrefix, String registeredPrefix, String publicPrefix, List<String> requiredScopeList, InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
+    public ITokenAuthorizer getTokenAuthorizer(String tokenAuthorizationMethod, String controlledPrefix, String registeredPrefix, String publicPrefix, List<String> requiredScopeList, InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) throws Exception {
         if (tokenAuthorizationMethod.equals("email")) {
             return new TokenAuthorizerEmailImpl(controlledPrefix, registeredPrefix, publicPrefix, emailWhitelist, objectMapper);
         } else if (tokenAuthorizationMethod.equals("scope")) {
             return new TokenAuthorizerScopeImpl(controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, objectMapper);
         } else {
-            return null;
+            throw new Exception("No suitable token authorizer found!");
         }
     }
 }
