@@ -46,16 +46,16 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
             Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
             final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
             if (hasWhitelistedEmailAddress) {
-                setAccessDecision(response, "access-granted");
+                Utils.setAccessDecision(response, "access-granted");
                 return controlledPrefix;
             } else {
-                setAccessDecision(response, "insufficient-credentials");
+                Utils.setAccessDecision(response, "insufficient-credentials");
                 return registeredPrefix;
             }
         } catch (ExpiredJwtException ex) {
             log.error("Caught expired exception");
-            setAccessDecision(response, "expired-credentials");
-            return publicPrefixOrAuthChallenge();
+            Utils.setAccessDecision(response, "expired-credentials");
+            return Utils.publicPrefixOrAuthChallenge(publicPrefix);
         } catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
@@ -72,20 +72,6 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
 
     private boolean issuedByGoogle(GatekeeperRequestRouter.Account account) {
         return GOOGLE_ISSUER_URL.equals(account.getIssuer());
-    }
-
-    private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
-        if (StringUtils.isEmpty(publicPrefix)) {
-            log.debug("Public prefix is empty. Sending 401 auth challenge.");
-            throw new UnroutableRequestException(401, "Anonymous requests not accepted.");
-        } else {
-            return publicPrefix;
-        }
-    }
-
-    private void setAccessDecision(HttpServletResponse response, String decision) {
-        log.info("Access decision made: {}", decision);
-        response.setHeader("X-Gatekeeper-Access-Decision", decision);
     }
 
     private Stream<String> extractGoogleEmailAddresses(Claims claims) {

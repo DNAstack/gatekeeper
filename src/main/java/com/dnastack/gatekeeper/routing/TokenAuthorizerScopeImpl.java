@@ -50,26 +50,10 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
             }
         } catch (ExpiredJwtException ex) {
             log.error("Caught expired exception");
-            setAccessDecision(response, "expired-credentials");
-            return publicPrefixOrAuthChallenge();
+            Utils.setAccessDecision(response, "expired-credentials");
+            return Utils.publicPrefixOrAuthChallenge(publicPrefix);
         } catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
     }
-
-
-    private void setAccessDecision(HttpServletResponse response, String decision) {
-        log.info("Access decision made: {}", decision);
-        response.setHeader("X-Gatekeeper-Access-Decision", decision);
-    }
-
-    private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
-        if (StringUtils.isEmpty(publicPrefix)) {
-            log.debug("Public prefix is empty. Sending 401 auth challenge.");
-            throw new UnroutableRequestException(401, "Anonymous requests not accepted.");
-        } else {
-            return publicPrefix;
-        }
-    }
-
 }
