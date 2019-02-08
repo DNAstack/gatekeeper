@@ -22,9 +22,6 @@ import java.util.stream.Stream;
 @Slf4j
 public class GatekeeperRequestRouter implements RequestRouter {
 
-    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<Account>>() {
-
-    };
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
     @Value("${gatekeeper.beaconServer.url}")
