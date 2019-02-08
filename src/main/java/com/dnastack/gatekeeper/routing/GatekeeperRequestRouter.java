@@ -98,7 +98,9 @@ public class GatekeeperRequestRouter implements RequestRouter {
             throw new UnroutableRequestException(400, "Unsupported authorization scheme");
         }
 
-        ITokenAuthorizer tokenAuthorizer = new TokenAuthorizerImpl(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
+        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
+        //ITokenAuthorizer tokenAuthorizer = new TokenAuthorizerImpl(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
+        ITokenAuthorizer tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
 
         String prefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser, response);
         return prefixString;
