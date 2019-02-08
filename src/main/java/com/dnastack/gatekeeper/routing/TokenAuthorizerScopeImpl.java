@@ -1,7 +1,5 @@
 package com.dnastack.gatekeeper.routing;
 
-import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +9,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
 
 @Slf4j
 public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
@@ -58,7 +55,6 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
         } catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
-
     }
 
 
