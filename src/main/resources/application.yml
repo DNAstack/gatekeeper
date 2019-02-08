@@ -15,6 +15,11 @@ gatekeeper:
     # Can be removed when this is explicitly configured in Sinai and MSSNG gatekeeper deployments.
     registered-prefix: public
     controlled-prefix: protected
+    required:
+      scope: openid
+    token:
+      authorization:
+        method: email
 
 logging:
   level:
