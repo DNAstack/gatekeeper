@@ -142,4 +142,16 @@ public class GatekeeperRequestRouter implements RequestRouter {
     void setControlledPrefix(String prefix) {
         this.controlledPrefix = prefix;
     }
+
+    public void setTokenAuthorizationMethod(String tokenAuthorizationMethod) {
+        this.tokenAuthorizationMethod = tokenAuthorizationMethod;
+    }
+
+    public void setRequiredScopeList(List<String> requiredScopeList) {
+        this.requiredScopeList = requiredScopeList;
+    }
+
+    public void setEmailWhitelist(InboundEmailWhitelistConfiguration emailWhitelist) {
+        this.emailWhitelist = emailWhitelist;
+    }
 }
