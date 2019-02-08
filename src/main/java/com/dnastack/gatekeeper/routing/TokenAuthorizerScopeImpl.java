@@ -16,8 +16,6 @@ import java.util.stream.Stream;
 @Slf4j
 public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
 
-    public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
-
     private String controlledPrefix;
     private String registeredPrefix;
     private String publicPrefix;
