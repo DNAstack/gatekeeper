@@ -33,6 +33,12 @@ public class GatekeeperRequestRouter implements RequestRouter {
     @Value("${gatekeeper.beaconServer.public-prefix}")
     private String publicPrefix;
 
+    @Value("${gatekeeper.token.authorization.method}")
+    private String tokenAuthorizationMethod;
+
+    @Value("${gatekeeper.required.scope}")
+    private List<String> requiredScopeList;
+
     @Value("${gatekeeper.beaconServer.registered-prefix}")
     private String registeredPrefix;
 
@@ -91,6 +97,11 @@ public class GatekeeperRequestRouter implements RequestRouter {
         if (!authScheme.equalsIgnoreCase("bearer")) {
             throw new UnroutableRequestException(400, "Unsupported authorization scheme");
         }
+
+        ITokenAuthorizer tokenAuthorizer = new TokenAuthorizerImpl(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
+
+        String returnPrefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser);
+
 
         Jws<Claims> jws;
         try {
