@@ -99,12 +99,10 @@ public class GatekeeperRequestRouter implements RequestRouter {
         }
 
         TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
-        //ITokenAuthorizer tokenAuthorizer = new TokenAuthorizerImpl(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
         ITokenAuthorizer tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
 
         String prefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser, response);
         return prefixString;
-
     }
 
     private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
