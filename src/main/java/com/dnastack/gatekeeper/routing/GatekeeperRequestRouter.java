@@ -119,27 +119,6 @@ public class GatekeeperRequestRouter implements RequestRouter {
         response.setHeader("X-Gatekeeper-Access-Decision", decision);
     }
 
-    private Stream<String> extractGoogleEmailAddresses(Claims claims) {
-        final List<Account> accounts = objectMapper.convertValue(claims.get("accounts", List.class),
-                                                                 LIST_OF_ACCOUNT_TYPE);
-        return accounts.stream()
-                       .filter(this::issuedByGoogle)
-                       .flatMap(this::accountEmail);
-    }
-
-    private Stream<String> accountEmail(Account account) {
-        final String email = account.getEmail();
-        return (email == null) ? Stream.empty() : Stream.of(email);
-    }
-
-    private boolean issuedByGoogle(Account account) {
-        return GOOGLE_ISSUER_URL.equals(account.getIssuer());
-    }
-
-    private boolean isWhitelisted(String email) {
-        return emailWhitelist.getEmailWhitelist().contains(email);
-    }
-
     @Data
     static class Account {
         private String accountId, issuer, email;
