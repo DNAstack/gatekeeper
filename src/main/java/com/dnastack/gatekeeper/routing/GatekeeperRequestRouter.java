@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
@@ -53,7 +54,8 @@ public class GatekeeperRequestRouter implements RequestRouter {
     @Autowired
     private JwtParser jwtParser;
 
-    GatekeeperRequestRouter() throws Exception {
+    @PostConstruct
+    public void GatekeeperRequestRouterInit() throws Exception {
         TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
         this.tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
     }
