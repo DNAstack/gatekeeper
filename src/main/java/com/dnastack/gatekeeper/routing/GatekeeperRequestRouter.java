@@ -2,7 +2,7 @@ package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.*;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
@@ -95,8 +95,18 @@ public class GatekeeperRequestRouter implements RequestRouter {
             return publicPrefixOrAuthChallenge();
         }
 
-        String prefixString = tokenAuthorizer.authorizeToken(foundAuthToken.get(), jwtParser, response);
-        return prefixString;
+        try {
+            Jws<Claims> jws = jwtParser.parseClaimsJws(foundAuthToken.get());
+            log.info("Validated signature of inbound token {}", jws);
+
+            return tokenAuthorizer.authorizeToken(jws, response);
+        } catch (ExpiredJwtException ex) {
+            log.error("Caught expired exception");
+            Utils.setAccessDecision(response, "expired-credentials");
+            return Utils.publicPrefixOrAuthChallenge(publicPrefix);
+        } catch (JwtException ex) {
+            throw new UnroutableRequestException(401, "Invalid token: " + ex);
+        }
     }
 
     private Optional<String> extractAuthToken(HttpServletRequest request) throws UnroutableRequestException {

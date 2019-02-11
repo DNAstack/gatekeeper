@@ -1,11 +1,12 @@
 package com.dnastack.gatekeeper.routing;
 
-import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 
 import javax.servlet.http.HttpServletResponse;
 
 public interface ITokenAuthorizer {
 
-    String authorizeToken(String authToken, JwtParser jwtParser, HttpServletResponse response) throws UnroutableRequestException;
+    String authorizeToken(Jws<Claims> jws, HttpServletResponse response) throws UnroutableRequestException;
 
 }

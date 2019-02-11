@@ -3,9 +3,9 @@ package com.dnastack.gatekeeper.routing;
 import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
@@ -36,28 +36,18 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
 
 
     @Override
-    public String authorizeToken(String authToken, JwtParser jwtParser, HttpServletResponse response) throws UnroutableRequestException {
+    public String authorizeToken(Jws<Claims> jws, HttpServletResponse response) {
+        log.info("Validated signature of inbound token {}", jws);
+        final Claims claims = jws.getBody();
 
-        try {
-            Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
-            log.info("Validated signature of inbound token {}", jws);
-            final Claims claims = jws.getBody();
-
-            Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
-            final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
-            if (hasWhitelistedEmailAddress) {
-                Utils.setAccessDecision(response, "access-granted");
-                return controlledPrefix;
-            } else {
-                Utils.setAccessDecision(response, "insufficient-credentials");
-                return registeredPrefix;
-            }
-        } catch (ExpiredJwtException ex) {
-            log.error("Caught expired exception");
-            Utils.setAccessDecision(response, "expired-credentials");
-            return Utils.publicPrefixOrAuthChallenge(publicPrefix);
-        } catch (JwtException ex) {
-            throw new UnroutableRequestException(401, "Invalid token: " + ex);
+        Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
+        final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
+        if (hasWhitelistedEmailAddress) {
+            Utils.setAccessDecision(response, "access-granted");
+            return controlledPrefix;
+        } else {
+            Utils.setAccessDecision(response, "insufficient-credentials");
+            return registeredPrefix;
         }
     }
 
