@@ -16,9 +16,10 @@ public class JwtParserConfiguration {
 
     @Bean
     public JwtParser jwtParser() {
-        PublicKey publicKey = RsaKeyHelper.parsePublicKey(keyConfiguration.getPublicKey());
+        final PublicKey publicKey = RsaKeyHelper.parsePublicKey(keyConfiguration.getPublicKey());
         return Jwts.parser()
-                .setSigningKey(publicKey);
+                   .setSigningKey(publicKey);
+
     }
 
 }

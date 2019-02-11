@@ -18,6 +18,8 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 
+import static java.lang.String.format;
+
 @Component
 @Slf4j
 public class GatekeeperRequestRouter implements RequestRouter {
@@ -34,6 +36,10 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
     @Value("${gatekeeper.token.authorization.method}")
     private String tokenAuthorizationMethod;
+
+    // Can't default to empty list when we specify value in application.yml
+    @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
+    private List<String> acceptedAudiences;
 
     @Value("${gatekeeper.required.scope}")
     private List<String> requiredScopeList;
@@ -89,15 +95,14 @@ public class GatekeeperRequestRouter implements RequestRouter {
         if (!foundAuthToken.isPresent()) {
             log.debug("No auth found. Sending auth challenge.");
             response.setHeader("WWW-Authenticate", "Bearer");
-            final String accessDecision = String.format("requires-credentials %s $.accounts[*].email",
+            final String accessDecision = format("requires-credentials %s $.accounts[*].email",
                                                         GOOGLE_ISSUER_URL);
             setAccessDecision(response, accessDecision);
             return publicPrefixOrAuthChallenge();
         }
 
         try {
-            Jws<Claims> jws = jwtParser.parseClaimsJws(foundAuthToken.get());
-            log.info("Validated signature of inbound token {}", jws);
+            final Jws<Claims> jws = parseAndValidateJws(foundAuthToken.get());
 
             return tokenAuthorizer.authorizeToken(jws, response);
         } catch (ExpiredJwtException ex) {
@@ -107,6 +112,27 @@ public class GatekeeperRequestRouter implements RequestRouter {
         } catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
+    }
+
+    private Jws<Claims> parseAndValidateJws(String authToken) {
+        final Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
+        if (acceptedAudiences.isEmpty()) {
+            log.debug("Not validating token audience, because no audiences are configured.");
+        } else {
+            final String tokenAudience = Optional.of(jws)
+                                                 .map(Jws::getBody)
+                                                 .map(Claims::getAudience)
+                                                 .orElseThrow(() -> new JwtException("No audience specified in token."));
+            final Optional<String> validAudience = acceptedAudiences.stream().filter(tokenAudience::equals).findAny();
+            if (validAudience.isPresent()) {
+                log.debug("Token audience successfully validated [{}]", validAudience.get());
+            } else {
+                throw new JwtException(format("Token audience [%s] is invalid.", tokenAudience));
+            }
+        }
+
+        log.info("Validated signature of inbound token {}", jws);
+        return jws;
     }
 
     private Optional<String> extractAuthToken(HttpServletRequest request) throws UnroutableRequestException {
