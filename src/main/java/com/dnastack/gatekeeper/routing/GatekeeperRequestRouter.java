@@ -16,6 +16,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -83,8 +84,9 @@ public class GatekeeperRequestRouter implements RequestRouter {
     }
 
     private String choosePrefixBasedOnAuth(HttpServletRequest request, HttpServletResponse response) throws UnroutableRequestException {
-        String authHeader = request.getHeader("authorization");
-        if (authHeader == null) {
+        final Optional<String> foundAuthToken = extractAuthToken(request);
+
+        if (!foundAuthToken.isPresent()) {
             log.debug("No auth found. Sending auth challenge.");
             response.setHeader("WWW-Authenticate", "Bearer");
             final String accessDecision = String.format("requires-credentials %s $.accounts[*].email",
@@ -93,20 +95,29 @@ public class GatekeeperRequestRouter implements RequestRouter {
             return publicPrefixOrAuthChallenge();
         }
 
-        String[] parts = authHeader.split(" ");
-        if (parts.length != 2) {
-            throw new UnroutableRequestException(400, "Invalid authorization header");
-        }
-
-        String authScheme = parts[0];
-        String authToken = parts[1];
-
-        if (!authScheme.equalsIgnoreCase("bearer")) {
-            throw new UnroutableRequestException(400, "Unsupported authorization scheme");
-        }
-
-        String prefixString = tokenAuthorizer.authorizeToken(authToken, jwtParser, response);
+        String prefixString = tokenAuthorizer.authorizeToken(foundAuthToken.get(), jwtParser, response);
         return prefixString;
+    }
+
+    private Optional<String> extractAuthToken(HttpServletRequest request) throws UnroutableRequestException {
+        final String authHeader = request.getHeader("authorization");
+
+        if (authHeader != null) {
+            final String[] parts = Optional.of(authHeader)
+                                           .map(value -> value.split(" "))
+                                           .filter(values -> values.length == 2)
+                                           .orElseThrow(() -> new UnroutableRequestException(400,
+                                                                                             "Invalid authorization header"));
+
+            final String authScheme = parts[0];
+            if (!authScheme.equalsIgnoreCase("bearer")) {
+                throw new UnroutableRequestException(400, "Unsupported authorization scheme");
+            }
+
+            return Optional.of(parts[1]);
+        } else {
+            return Optional.ofNullable(request.getParameter("access_token"));
+        }
     }
 
     private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
