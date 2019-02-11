@@ -55,7 +55,7 @@ public class GatekeeperRequestRouterTest {
         List<String> requiredScopeList = new ArrayList<String>();
         requiredScopeList.add("oneid");
         router.setRequiredScopeList(requiredScopeList);
-        router.GatekeeperRequestRouterInit();
+        router.init();
 	}
 
 	

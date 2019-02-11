@@ -1,9 +1,8 @@
 package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.JwtParser;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
@@ -17,7 +16,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.stream.Stream;
 
 @Component
 @Slf4j
@@ -55,7 +53,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
     private JwtParser jwtParser;
 
     @PostConstruct
-    public void GatekeeperRequestRouterInit() throws Exception {
+    public void init() throws Exception {
         TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
         this.tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
     }
@@ -67,9 +65,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
         URI targetBaseUri = URI.create(beaconServerUrl);
 
         String path = incomingUri.getPath();
-        if (path.startsWith("/beacon/")) {
-            path = path.substring("/beacon".length());
-        }
+        path = stripFirstPathPart(path);
         String pathPrefix = choosePrefixBasedOnAuth(request, response);
         path = pathPrefix + path;
 
@@ -79,6 +75,11 @@ public class GatekeeperRequestRouter implements RequestRouter {
                 targetBaseUri.getPath() + path,
                 incomingUri.getQuery(),
                 incomingUri.getFragment());
+    }
+
+    private String stripFirstPathPart(String path) {
+        final int secondPartStart = path.indexOf('/', 1);
+        return path.substring(secondPartStart);
     }
 
     private String choosePrefixBasedOnAuth(HttpServletRequest request, HttpServletResponse response) throws UnroutableRequestException {

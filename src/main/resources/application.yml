@@ -2,9 +2,9 @@ server:
   port: 8082
 zuul:
   routes:
-    dynamic:
+    beacon:
       path: /beacon/**
-      # see GatekeeperProxyDecider for where the target is calculated
+      # see GatekeeperRequestRouter for where the target is calculated
       url: http://route-created-by-rules/
 
 gatekeeper:
@@ -15,11 +15,11 @@ gatekeeper:
     # Can be removed when this is explicitly configured in Sinai and MSSNG gatekeeper deployments.
     registered-prefix: public
     controlled-prefix: protected
-    required:
-      scope: openid
-    token:
-      authorization:
-        method: email
+  required:
+    scope: openid
+  token:
+    authorization:
+      method: email
 
 logging:
   level:
