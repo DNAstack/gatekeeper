@@ -47,3 +47,13 @@ environment variables that you may want to set:
 * `INBOUND_JWT_PUBLIC_KEY` - the PEM-formatted public key of the Wallet server this Gatekeeper will trust
 * `GATEKEEPER_BEACONSERVER_URL` - the URL of the beacon server being protected (proxied)
 * see [application.yml](src/main/resources/application.yml) for more
+
+### To run Gatekeeper locally via IntelliJ
+
+1. First, get a mysql instance up and running through docker. Run this command:
+
+    `docker run --name mysql-gatekeeper -e MYSQL_ROOT_PASSWORD=abc123 -p 3306:3306 -d mysql-server:5.7`
+
+2. Now you can run gatekeeper locally from inside IntelliJ.
+
+
