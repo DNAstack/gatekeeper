@@ -1,6 +1,9 @@
 package com.dnastack.gatekeeper.routing;
 
+import lombok.Getter;
+
 public class UnroutableRequestException extends Exception {
+    @Getter
     private final int status;
 
     public UnroutableRequestException(int status, String message) {
@@ -8,7 +11,4 @@ public class UnroutableRequestException extends Exception {
         this.status = status;
     }
 
-    public int getStatus() {
-        return status;
-    }
 }

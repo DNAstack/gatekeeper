@@ -5,16 +5,24 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.*;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.gateway.filter.GatewayFilter;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.net.URI;
-import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,14 +30,11 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class GatekeeperRequestRouter implements RequestRouter {
+public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory {
 
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
     private ITokenAuthorizer tokenAuthorizer;
-
-    @Value("${gatekeeper.beaconServer.url}")
-    private String beaconServerUrl;
 
     @Value("${gatekeeper.beaconServer.public-prefix}")
     private String publicPrefix;
@@ -66,35 +71,16 @@ public class GatekeeperRequestRouter implements RequestRouter {
     }
 
     @Override
-    public URI route(HttpServletRequest request, HttpServletResponse response) throws URISyntaxException, UnroutableRequestException {
-
-        URI incomingUri = URI.create(request.getRequestURI());
-        URI targetBaseUri = URI.create(beaconServerUrl);
-
-        String path = incomingUri.getPath();
-        path = stripFirstPathPart(path);
-        String pathPrefix = choosePrefixBasedOnAuth(request, response);
-        path = pathPrefix + path;
-
-        return new URI(
-                targetBaseUri.getScheme(),
-                targetBaseUri.getAuthority(),
-                targetBaseUri.getPath() + path,
-                incomingUri.getQuery(),
-                incomingUri.getFragment());
+    public GatewayFilter apply(Object config) {
+        return this::doFilter;
     }
 
-    private String stripFirstPathPart(String path) {
-        final int secondPartStart = path.indexOf('/', 1);
-        return path.substring(secondPartStart);
-    }
-
-    private String choosePrefixBasedOnAuth(HttpServletRequest request, HttpServletResponse response) throws UnroutableRequestException {
+    private String choosePrefixBasedOnAuth(ServerHttpRequest request, ServerHttpResponse response) throws UnroutableRequestException {
         final Optional<String> foundAuthToken = extractAuthToken(request);
 
         if (!foundAuthToken.isPresent()) {
             log.debug("No auth found. Sending auth challenge.");
-            response.setHeader("WWW-Authenticate", "Bearer");
+            response.getHeaders().add("WWW-Authenticate", "Bearer");
             final String accessDecision = format("requires-credentials %s $.accounts[*].email",
                                                         GOOGLE_ISSUER_URL);
             setAccessDecision(response, accessDecision);
@@ -135,8 +121,8 @@ public class GatekeeperRequestRouter implements RequestRouter {
         return jws;
     }
 
-    private Optional<String> extractAuthToken(HttpServletRequest request) throws UnroutableRequestException {
-        final String authHeader = request.getHeader("authorization");
+    private Optional<String> extractAuthToken(ServerHttpRequest request) throws UnroutableRequestException {
+        final String authHeader = request.getHeaders().getFirst("authorization");
 
         if (authHeader != null) {
             final String[] parts = Optional.of(authHeader)
@@ -152,7 +138,7 @@ public class GatekeeperRequestRouter implements RequestRouter {
 
             return Optional.of(parts[1]);
         } else {
-            return Optional.ofNullable(request.getParameter("access_token"));
+            return Optional.ofNullable(request.getQueryParams().getFirst("access_token"));
         }
     }
 
@@ -165,19 +151,38 @@ public class GatekeeperRequestRouter implements RequestRouter {
         }
     }
 
-    private void setAccessDecision(HttpServletResponse response, String decision) {
+    private void setAccessDecision(ServerHttpResponse response, String decision) {
         log.info("Access decision made: {}", decision);
-        response.setHeader("X-Gatekeeper-Access-Decision", decision);
+        response.getHeaders().add("X-Gatekeeper-Access-Decision", decision);
+    }
+
+    private Mono<Void> doFilter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        final ServerHttpRequest request = exchange.getRequest();
+        final ServerHttpResponse response = exchange.getResponse();
+        try {
+            URI incomingUri = request.getURI();
+
+            final String pathPrefix = choosePrefixBasedOnAuth(request, response);
+            final String path = "/" + pathPrefix + incomingUri.getPath();
+
+            final ServerHttpRequest newRequest = request.mutate().path(path).build();
+
+            return chain.filter(exchange.mutate().request(newRequest).build());
+        } catch (UnroutableRequestException e) {
+            final HttpStatus status = HttpStatus.resolve(e.getStatus());
+            final String message = e.getMessage();
+
+            final DataBuffer buffer = response.bufferFactory().wrap(message.getBytes(StandardCharsets.UTF_8));
+            response.setStatusCode(status);
+
+            return response.writeWith(Flux.just(buffer));
+        }
     }
 
     @Data
     static class Account {
         private String accountId, issuer, email;
     }
-
-    void setBeaconServerUrl(String string) {
-		beaconServerUrl = string;		
-	}
 
 	void setPublicPrefix(String prefix) {
         this.publicPrefix = prefix;

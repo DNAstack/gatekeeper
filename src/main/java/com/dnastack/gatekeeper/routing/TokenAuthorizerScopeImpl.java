@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 
-import javax.servlet.http.HttpServletResponse;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +28,7 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
     }
 
     @Override
-    public String authorizeToken(Jws<Claims> jws, HttpServletResponse response) {
+    public String authorizeToken(Jws<Claims> jws, ServerHttpResponse response) {
         log.info("Validated signature of inbound token {}", jws);
         final Claims claims = jws.getBody();
 

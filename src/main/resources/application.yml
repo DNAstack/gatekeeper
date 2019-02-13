@@ -1,15 +1,27 @@
 server:
   port: 8082
-zuul:
-  routes:
-    beacon:
-      path: /beacon/**
-      # see GatekeeperRequestRouter for where the target is calculated
-      url: http://route-created-by-rules/
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - predicates:
+            - Path=${gatekeeper.beaconPredicate}
+          filters:
+            - StripPrefix=1
+            - Gatekeeper
+            - StripAuthHeader
+            - name: AddBasicAuthHeader
+              args:
+                username: ${outbound.basic.username}
+                password: ${outbound.basic.password}
+            - Logging
+          uri: ${gatekeeper.beaconServer.url}
 
 gatekeeper:
+  beaconPredicate: /beacon/**
   beaconServer:
-    url: https://httpbin.org/anything/
+    url: http://localhost:8083/
     public-prefix: public
     # This default exists for easy upgrade of deployed beacons.
     # Can be removed when this is explicitly configured in Sinai and MSSNG gatekeeper deployments.
