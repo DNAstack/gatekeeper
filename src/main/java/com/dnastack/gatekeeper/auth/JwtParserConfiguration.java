@@ -1,7 +1,6 @@
 package com.dnastack.gatekeeper.auth;
 
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,10 +15,13 @@ public class JwtParserConfiguration {
 
     @Bean
     public JwtParser jwtParser() {
-        final PublicKey publicKey = RsaKeyHelper.parsePublicKey(keyConfiguration.getPublicKey());
-        return Jwts.parser()
-                   .setSigningKey(publicKey);
 
+        if(keyConfiguration.getAlgorithm().equals("RS256")) {
+            final PublicKey publicKey = RsaKeyHelper.parsePublicKey(keyConfiguration.getPublicKey());
+            return Jwts.parser().setSigningKey(publicKey);
+        } else {
+            return Jwts.parser().setSigningKey(keyConfiguration.getPublicKey());
+        }
     }
 
 }
