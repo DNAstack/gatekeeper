@@ -10,6 +10,20 @@ import static org.hamcrest.CoreMatchers.*;
 public class ActuatorE2eTest extends BaseE2eTest {
 
     @Test
+    public void rootReturns200ForK8sHealthCheck() {
+        //@formatter:off
+        given()
+                .log().method()
+                .log().uri()
+                .when()
+                .get("/")
+                .then()
+                .log().ifValidationFails()
+                .statusCode(200);
+        //@formatter:on
+    }
+
+    @Test
     public void appNameAndVersionShouldBeExposed() {
         //@formatter:off
         given()
