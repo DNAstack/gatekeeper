@@ -16,7 +16,7 @@ public class JwtParserConfiguration {
     @Bean
     public JwtParser jwtParser() {
 
-        if(keyConfiguration.getAlgorithm().equals("RS256")) {
+        if (keyConfiguration.getAlgorithm().equalsIgnoreCase("RS256")) {
             final PublicKey publicKey = RsaKeyHelper.parsePublicKey(keyConfiguration.getPublicKey());
             return Jwts.parser().setSigningKey(publicKey);
         } else {
