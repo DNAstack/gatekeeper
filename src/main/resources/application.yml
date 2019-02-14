@@ -6,10 +6,15 @@ spring:
     gateway:
       routes:
         - predicates:
-            - Path=${gatekeeper.beaconPredicate}
+            - Path=/beacon/**
           filters:
             - StripPrefix=1
-            - Gatekeeper
+            - name: Gatekeeper
+              args:
+                publicPrefix: ${gatekeeper.beaconServer.public-prefix}
+                registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
+                controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
+            - PrependUriPath=${gatekeeper.beaconServer.url}
             - StripAuthHeader
             - name: AddBasicAuthHeader
               args:
@@ -17,15 +22,34 @@ spring:
                 password: ${outbound.basic.password}
             - Logging
           uri: ${gatekeeper.beaconServer.url}
+        - predicates:
+            - Path=/metadata/**
+          filters:
+            - StripPrefix=1
+            - name: Gatekeeper
+              args:
+                publicPrefix: ${gatekeeper.metadataServer.public-prefix}
+                registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
+                controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
+            - PrependUriPath=${gatekeeper.metadataServer.url}
+            - StripAuthHeader
+            - name: AddBasicAuthHeader
+              args:
+                username: ${outbound.basic.username}
+                password: ${outbound.basic.password}
+            - Logging
+          uri: ${gatekeeper.metadataServer.url}
 
 gatekeeper:
-  beaconPredicate: /beacon/**
+  metadataServer:
+    url: ${gatekeeper.beaconServer.url}
+    public-prefix: ""
+    registered-prefix: ""
+    controlled-prefix: "protected"
   beaconServer:
-    url: http://localhost:8083/
+    url: http://httpbin.org/anything
     public-prefix: public
-    # This default exists for easy upgrade of deployed beacons.
-    # Can be removed when this is explicitly configured in Sinai and MSSNG gatekeeper deployments.
-    registered-prefix: public
+    registered-prefix: registered
     controlled-prefix: protected
   required:
     scope: openid
@@ -47,6 +71,7 @@ inbound:
   jwt:
     algorithm: RS256
     # This is the development public key corresponding to the development private key in wallet.
+    # See README for private key
     # This key is NOT used in any deployments. It is only meant for quick developer startup.
     public-key: |
       -----BEGIN PUBLIC KEY-----

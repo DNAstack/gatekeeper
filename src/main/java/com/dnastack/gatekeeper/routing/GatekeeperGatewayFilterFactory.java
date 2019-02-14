@@ -20,7 +20,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -30,14 +29,9 @@ import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory {
+public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperGatewayFilterFactory.Config> {
 
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
-
-    private ITokenAuthorizer tokenAuthorizer;
-
-    @Value("${gatekeeper.beaconServer.public-prefix}")
-    private String publicPrefix;
 
     @Value("${gatekeeper.token.authorization.method}")
     private String tokenAuthorizationMethod;
@@ -49,12 +43,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     @Value("${gatekeeper.required.scope}")
     private List<String> requiredScopeList;
 
-    @Value("${gatekeeper.beaconServer.registered-prefix}")
-    private String registeredPrefix;
-
-    @Value("${gatekeeper.beaconServer.controlled-prefix}")
-    private String controlledPrefix;
-
     @Autowired
     private InboundEmailWhitelistConfiguration emailWhitelist;
 
@@ -64,18 +52,22 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     @Autowired
     private JwtParser jwtParser;
 
-    @PostConstruct
-    public void init() throws Exception {
-        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
-        this.tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(tokenAuthorizationMethod, controlledPrefix, registeredPrefix, publicPrefix, requiredScopeList, emailWhitelist, objectMapper);
+    public GatekeeperGatewayFilterFactory() {
+        super(Config.class);
     }
 
     @Override
-    public GatewayFilter apply(Object config) {
-        return this::doFilter;
+    public GatewayFilter apply(Config config) {
+        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
+        final ITokenAuthorizer tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(config,
+                                                                                           tokenAuthorizationMethod,
+                                                                                           requiredScopeList,
+                                                                                           emailWhitelist,
+                                                                                           objectMapper);
+        return (exchange, chain) -> doFilter(config, tokenAuthorizer, exchange, chain);
     }
 
-    private String choosePrefixBasedOnAuth(ServerHttpRequest request, ServerHttpResponse response) throws UnroutableRequestException {
+    private String choosePrefixBasedOnAuth(Config config, ITokenAuthorizer tokenAuthorizer, ServerHttpRequest request, ServerHttpResponse response) throws UnroutableRequestException {
         final Optional<String> foundAuthToken = extractAuthToken(request);
 
         if (!foundAuthToken.isPresent()) {
@@ -84,7 +76,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
             final String accessDecision = format("requires-credentials %s $.accounts[*].email",
                                                         GOOGLE_ISSUER_URL);
             setAccessDecision(response, accessDecision);
-            return publicPrefixOrAuthChallenge();
+            return publicPrefixOrAuthChallenge(config);
         }
 
         try {
@@ -94,7 +86,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         } catch (ExpiredJwtException ex) {
             log.error("Caught expired exception");
             Utils.setAccessDecision(response, "expired-credentials");
-            return Utils.publicPrefixOrAuthChallenge(publicPrefix);
+            return Utils.publicPrefixOrAuthChallenge(config.getPublicPrefix());
         } catch (JwtException ex) {
             throw new UnroutableRequestException(401, "Invalid token: " + ex);
         }
@@ -142,7 +134,8 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         }
     }
 
-    private String publicPrefixOrAuthChallenge() throws UnroutableRequestException {
+    private String publicPrefixOrAuthChallenge(Config config) throws UnroutableRequestException {
+        final String publicPrefix = config.getPublicPrefix();
         if (StringUtils.isEmpty(publicPrefix)) {
             log.debug("Public prefix is empty. Sending 401 auth challenge.");
             throw new UnroutableRequestException(401, "Anonymous requests not accepted.");
@@ -156,13 +149,13 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         response.getHeaders().add("X-Gatekeeper-Access-Decision", decision);
     }
 
-    private Mono<Void> doFilter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    private Mono<Void> doFilter(Config config, ITokenAuthorizer tokenAuthorizer, ServerWebExchange exchange, GatewayFilterChain chain) {
         final ServerHttpRequest request = exchange.getRequest();
         final ServerHttpResponse response = exchange.getResponse();
         try {
             URI incomingUri = request.getURI();
 
-            final String pathPrefix = choosePrefixBasedOnAuth(request, response);
+            final String pathPrefix = choosePrefixBasedOnAuth(config, tokenAuthorizer, request, response);
             final String path = "/" + pathPrefix + incomingUri.getPath();
 
             final ServerHttpRequest newRequest = request.mutate().path(path).build();
@@ -180,31 +173,14 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     }
 
     @Data
+    public static class Config {
+        private String publicPrefix;
+        private String registeredPrefix;
+        private String controlledPrefix;
+    }
+
+    @Data
     static class Account {
         private String accountId, issuer, email;
-    }
-
-	void setPublicPrefix(String prefix) {
-        this.publicPrefix = prefix;
-    }
-
-    void setRegisteredPrefix(String prefix) {
-        this.registeredPrefix = prefix;
-    }
-
-    void setControlledPrefix(String prefix) {
-        this.controlledPrefix = prefix;
-    }
-
-    public void setTokenAuthorizationMethod(String tokenAuthorizationMethod) {
-        this.tokenAuthorizationMethod = tokenAuthorizationMethod;
-    }
-
-    public void setRequiredScopeList(List<String> requiredScopeList) {
-        this.requiredScopeList = requiredScopeList;
-    }
-
-    public void setEmailWhitelist(InboundEmailWhitelistConfiguration emailWhitelist) {
-        this.emailWhitelist = emailWhitelist;
     }
 }
