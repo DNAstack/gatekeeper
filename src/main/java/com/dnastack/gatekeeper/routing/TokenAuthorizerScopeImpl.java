@@ -35,7 +35,7 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
         //1. Get the list of scopes from authtoken
         //2. Make sure that it contains all the scopes that are there in REQUIRED_SCOPE env variable
 
-        List<String> authTokenScopes = (List<String>) claims.get("scope");
+        List<String> authTokenScopes = (List<String>) claims.get("scopes");
         List<String> requiredScopes = requiredScopeList;
 
         Set<String> authTokenScopesSet = new HashSet<String>(authTokenScopes);

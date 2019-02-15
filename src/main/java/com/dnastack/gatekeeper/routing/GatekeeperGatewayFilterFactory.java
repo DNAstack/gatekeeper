@@ -156,7 +156,23 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
             URI incomingUri = request.getURI();
 
             final String pathPrefix = choosePrefixBasedOnAuth(config, tokenAuthorizer, request, response);
-            final String path = "/" + pathPrefix + incomingUri.getPath();
+
+            String path = "";
+
+            /**
+             * A path prefix of "/" is encoded to mean that the query should go the root of the beacon url.
+             * No further prefixes are to be added to beacon url in that case.
+             */
+            if (pathPrefix.equals("/")) {
+                path = incomingUri.getPath();
+            } else if (StringUtils.isEmpty(pathPrefix)) {
+                /* If we're here, it means we're presuming the beacon only accepts controlled access */
+                log.debug("Path prefix is empty, not allowing access.");
+                throw new UnroutableRequestException(401, "Unauthorized requests not accepted.");
+            }
+            else {
+                path = "/" + pathPrefix + incomingUri.getPath();
+            }
 
             final ServerHttpRequest newRequest = request.mutate().path(path).build();
 
