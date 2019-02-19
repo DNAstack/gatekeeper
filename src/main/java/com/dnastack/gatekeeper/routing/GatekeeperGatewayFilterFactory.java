@@ -26,7 +26,6 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,8 +58,19 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         super(Config.class);
     }
 
-    private static void setAccessDecision(ServerHttpResponse response, Collection<ITokenAuthorizer.DecisionInfo> decisionInfos) {
-        decisionInfos.forEach(decisionInfo -> setAccessDecision(response, decisionInfo.getHeaderValue()));
+    private static void setAccessDecision(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
+        authorizationDecision.getDecisionInfos()
+                             .forEach(decisionInfo -> setAccessDecision(response, decisionInfo.getHeaderValue()));
+        if (AccessGrant.PUBLIC.equals(authorizationDecision.getGrant())
+                && authorizationDecision.getDecisionInfos()
+                                        .contains(
+                                                StandardDecisions.REQUIRES_CREDENTIALS)) {
+            addAuthenticationChallengeHeaders(response);
+        }
+    }
+
+    private static void addAuthenticationChallengeHeaders(ServerHttpResponse response) {
+        response.getHeaders().add("WWW-Authenticate", "Bearer");
     }
 
     private static void setAccessDecision(ServerHttpResponse response, String decision) {
@@ -104,11 +114,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                                         .decisionInfo(new ITokenAuthorizer.CustomDecisionInfo("Invalid token: " + ex))
                                         .build();
         }
-    }
-
-    private void addSoftAuthChallenge(ServerHttpResponse response, String accessDecision) {
-        response.getHeaders().add("WWW-Authenticate", "Bearer");
-        setAccessDecision(response, accessDecision);
     }
 
     private Jws<Claims> parseAndValidateJws(String authToken) {
@@ -168,7 +173,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                                                                                  foundAuthToken.orElse(null));
 
         // Add headers with decision info here before it's forgotten.
-        setAccessDecision(response, authorizationDecision.getDecisionInfos());
+        setAccessDecision(response, authorizationDecision);
 
         final String pathPrefix = authorizationDecision.getGrant().getConfiguredPrefix(config);
         if (StringUtils.isEmpty(pathPrefix)) {
