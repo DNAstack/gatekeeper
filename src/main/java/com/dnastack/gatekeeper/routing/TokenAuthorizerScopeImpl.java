@@ -1,10 +1,8 @@
 package com.dnastack.gatekeeper.routing;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 
 import java.util.HashSet;
 import java.util.List;
@@ -13,22 +11,14 @@ import java.util.Set;
 @Slf4j
 public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
 
-    private String controlledPrefix;
-    private String registeredPrefix;
-    private String publicPrefix;
     private List<String> requiredScopeList;
-    private ObjectMapper objectMapper;
 
-    TokenAuthorizerScopeImpl(String controlledPrefix, String registeredPrefix, String publicPrefix, List<String> requiredScopeList, ObjectMapper objectMapper) {
-        this.controlledPrefix = controlledPrefix;
-        this.registeredPrefix = registeredPrefix;
-        this.publicPrefix = publicPrefix;
+    TokenAuthorizerScopeImpl(List<String> requiredScopeList) {
         this.requiredScopeList = requiredScopeList;
-        this.objectMapper = objectMapper;
     }
 
     @Override
-    public String authorizeToken(Jws<Claims> jws, ServerHttpResponse response) {
+    public AuthorizationDecision authorizeToken(Jws<Claims> jws) {
         log.info("Validated signature of inbound token {}", jws);
         final Claims claims = jws.getBody();
 
@@ -42,9 +32,15 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
         Set<String> requiredScopesSet = new HashSet<String>(requiredScopes);
 
         if (authTokenScopesSet.containsAll(requiredScopesSet)) {
-            return this.controlledPrefix;
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.CONTROLLED)
+                                        .decisionInfo(StandardDecisions.ACCESS_GRANTED)
+                                        .build();
         } else {
-            return this.registeredPrefix;
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.REGISTERED)
+                                        .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
+                                        .build();
         }
     }
 }

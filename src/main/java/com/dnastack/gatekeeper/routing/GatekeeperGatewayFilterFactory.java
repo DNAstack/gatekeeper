@@ -1,6 +1,9 @@
 package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
+import com.dnastack.gatekeeper.routing.ITokenAuthorizer.AccessGrant;
+import com.dnastack.gatekeeper.routing.ITokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.routing.ITokenAuthorizer.StandardDecisions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.*;
 import lombok.Data;
@@ -22,6 +25,8 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,8 +35,6 @@ import static java.lang.String.format;
 @Component
 @Slf4j
 public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperGatewayFilterFactory.Config> {
-
-    public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
     @Value("${gatekeeper.token.authorization.method}")
     private String tokenAuthorizationMethod;
@@ -56,6 +59,15 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         super(Config.class);
     }
 
+    private static void setAccessDecision(ServerHttpResponse response, Collection<ITokenAuthorizer.DecisionInfo> decisionInfos) {
+        decisionInfos.forEach(decisionInfo -> setAccessDecision(response, decisionInfo.getHeaderValue()));
+    }
+
+    private static void setAccessDecision(ServerHttpResponse response, String decision) {
+        log.info("Access decision made: {}", decision);
+        response.getHeaders().add("X-Gatekeeper-Access-Decision", decision);
+    }
+
     @Override
     public GatewayFilter apply(Config config) {
         TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
@@ -67,29 +79,36 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         return (exchange, chain) -> doFilter(config, tokenAuthorizer, exchange, chain);
     }
 
-    private String choosePrefixBasedOnAuth(Config config, ITokenAuthorizer tokenAuthorizer, ServerHttpRequest request, ServerHttpResponse response) throws UnroutableRequestException {
-        final Optional<String> foundAuthToken = extractAuthToken(request);
-
-        if (!foundAuthToken.isPresent()) {
+    private AuthorizationDecision determineAccessGrant(ITokenAuthorizer tokenAuthorizer, String authToken) {
+        if (authToken == null) {
             log.debug("No auth found. Sending auth challenge.");
-            response.getHeaders().add("WWW-Authenticate", "Bearer");
-            final String accessDecision = format("requires-credentials %s $.accounts[*].email",
-                                                        GOOGLE_ISSUER_URL);
-            setAccessDecision(response, accessDecision);
-            return publicPrefixOrAuthChallenge(config);
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.PUBLIC)
+                                        .decisionInfo(StandardDecisions.REQUIRES_CREDENTIALS)
+                                        .build();
         }
 
         try {
-            final Jws<Claims> jws = parseAndValidateJws(foundAuthToken.get());
+            final Jws<Claims> jws = parseAndValidateJws(authToken);
 
-            return tokenAuthorizer.authorizeToken(jws, response);
+            return tokenAuthorizer.authorizeToken(jws);
         } catch (ExpiredJwtException ex) {
             log.error("Caught expired exception");
-            Utils.setAccessDecision(response, "expired-credentials");
-            return Utils.publicPrefixOrAuthChallenge(config.getPublicPrefix());
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.PUBLIC)
+                                        .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
+                                        .build();
         } catch (JwtException ex) {
-            throw new UnroutableRequestException(401, "Invalid token: " + ex);
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.PUBLIC)
+                                        .decisionInfo(new ITokenAuthorizer.CustomDecisionInfo("Invalid token: " + ex))
+                                        .build();
         }
+    }
+
+    private void addSoftAuthChallenge(ServerHttpResponse response, String accessDecision) {
+        response.getHeaders().add("WWW-Authenticate", "Bearer");
+        setAccessDecision(response, accessDecision);
     }
 
     private Jws<Claims> parseAndValidateJws(String authToken) {
@@ -134,58 +153,63 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         }
     }
 
-    private String publicPrefixOrAuthChallenge(Config config) throws UnroutableRequestException {
-        final String publicPrefix = config.getPublicPrefix();
-        if (StringUtils.isEmpty(publicPrefix)) {
-            log.debug("Public prefix is empty. Sending 401 auth challenge.");
-            throw new UnroutableRequestException(401, "Anonymous requests not accepted.");
-        } else {
-            return publicPrefix;
-        }
-    }
-
-    private void setAccessDecision(ServerHttpResponse response, String decision) {
-        log.info("Access decision made: {}", decision);
-        response.getHeaders().add("X-Gatekeeper-Access-Decision", decision);
-    }
-
     private Mono<Void> doFilter(Config config, ITokenAuthorizer tokenAuthorizer, ServerWebExchange exchange, GatewayFilterChain chain) {
         final ServerHttpRequest request = exchange.getRequest();
         final ServerHttpResponse response = exchange.getResponse();
+        final URI incomingUri = request.getURI();
+        final Optional<String> foundAuthToken;
         try {
-            URI incomingUri = request.getURI();
+            foundAuthToken = extractAuthToken(request);
+        } catch (UnroutableRequestException e) {
+            return rewriteResponse(response, e.getStatus(), e.getMessage());
+        }
 
-            final String pathPrefix = choosePrefixBasedOnAuth(config, tokenAuthorizer, request, response);
+        final AuthorizationDecision authorizationDecision = determineAccessGrant(tokenAuthorizer,
+                                                                                 foundAuthToken.orElse(null));
 
-            String path = "";
+        // Add headers with decision info here before it's forgotten.
+        setAccessDecision(response, authorizationDecision.getDecisionInfos());
 
-            /**
+        final String pathPrefix = authorizationDecision.getGrant().getConfiguredPrefix(config);
+        if (StringUtils.isEmpty(pathPrefix)) {
+            log.debug("Prefix is empty. Sending 401 auth challenge.");
+            return hardAuthChallenge(response, "Anonymous requests not accepted.");
+        } else {
+            final String path;
+            /*
              * A path prefix of "/" is encoded to mean that the query should go the root of the beacon url.
              * No further prefixes are to be added to beacon url in that case.
              */
-            if (pathPrefix.equals("/")) {
-                path = incomingUri.getPath();
-            } else if (StringUtils.isEmpty(pathPrefix)) {
+            if (StringUtils.isEmpty(pathPrefix)) {
                 /* If we're here, it means we're presuming the beacon only accepts controlled access */
                 log.debug("Path prefix is empty, not allowing access.");
-                throw new UnroutableRequestException(401, "Unauthorized requests not accepted.");
-            }
-            else {
-                path = "/" + pathPrefix + incomingUri.getPath();
+                return hardAuthChallenge(response, "Unauthorized requests not accepted.");
+            } else {
+                path = "/" + pathWithNoLeadingOrTrailingSlashes(pathPrefix) + incomingUri.getPath();
             }
 
             final ServerHttpRequest newRequest = request.mutate().path(path).build();
 
             return chain.filter(exchange.mutate().request(newRequest).build());
-        } catch (UnroutableRequestException e) {
-            final HttpStatus status = HttpStatus.resolve(e.getStatus());
-            final String message = e.getMessage();
-
-            final DataBuffer buffer = response.bufferFactory().wrap(message.getBytes(StandardCharsets.UTF_8));
-            response.setStatusCode(status);
-
-            return response.writeWith(Flux.just(buffer));
         }
+    }
+
+    private String pathWithNoLeadingOrTrailingSlashes(String pathPrefix) {
+        return Arrays.stream(pathPrefix.split("/"))
+                     .reduce("",
+                                                                        (part1, part2) -> part1 + "/" + part2);
+    }
+
+    private Mono<Void> hardAuthChallenge(ServerHttpResponse response, String message) {
+        return rewriteResponse(response, 401, message);
+
+    }
+
+    private Mono<Void> rewriteResponse(ServerHttpResponse response, int status, String message) {
+        final DataBuffer buffer = response.bufferFactory().wrap(message.getBytes(StandardCharsets.UTF_8));
+        response.setStatusCode(HttpStatus.resolve(status));
+
+        return response.writeWith(Flux.just(buffer));
     }
 
     @Data

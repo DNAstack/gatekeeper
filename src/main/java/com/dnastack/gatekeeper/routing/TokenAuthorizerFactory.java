@@ -18,9 +18,9 @@ public class TokenAuthorizerFactory {
 
     public ITokenAuthorizer getTokenAuthorizer(GatekeeperGatewayFilterFactory.Config config, String tokenAuthorizationMethod, List<String> requiredScopeList, InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
         if (tokenAuthorizationMethod.equals("email")) {
-            return new TokenAuthorizerEmailImpl(config.getControlledPrefix(), config.getRegisteredPrefix(), config.getPublicPrefix(), emailWhitelist, objectMapper);
+            return new TokenAuthorizerEmailImpl(emailWhitelist, objectMapper);
         } else if (tokenAuthorizationMethod.equals("scope")) {
-            return new TokenAuthorizerScopeImpl(config.getControlledPrefix(), config.getRegisteredPrefix(), config.getPublicPrefix(), requiredScopeList, objectMapper);
+            return new TokenAuthorizerScopeImpl(requiredScopeList);
         } else {
             throw new IllegalArgumentException(format("No suitable token authorizer found for method [%s].", tokenAuthorizationMethod));
         }

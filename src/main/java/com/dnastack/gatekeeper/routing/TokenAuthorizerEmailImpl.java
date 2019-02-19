@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -20,34 +19,32 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
 
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
-    private String controlledPrefix;
-    private String registeredPrefix;
-    private String publicPrefix;
     private InboundEmailWhitelistConfiguration emailWhitelist;
     private ObjectMapper objectMapper;
 
-    TokenAuthorizerEmailImpl(String controlledPrefix, String registeredPrefix, String publicPrefix, InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
-        this.controlledPrefix = controlledPrefix;
-        this.registeredPrefix = registeredPrefix;
-        this.publicPrefix = publicPrefix;
+    TokenAuthorizerEmailImpl(InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
         this.emailWhitelist = emailWhitelist;
         this.objectMapper = objectMapper;
     }
 
 
     @Override
-    public String authorizeToken(Jws<Claims> jws, ServerHttpResponse response) {
+    public AuthorizationDecision authorizeToken(Jws<Claims> jws) {
         log.info("Validated signature of inbound token {}", jws);
         final Claims claims = jws.getBody();
 
         Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
         final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
         if (hasWhitelistedEmailAddress) {
-            Utils.setAccessDecision(response, "access-granted");
-            return controlledPrefix;
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.CONTROLLED)
+                                        .decisionInfo(StandardDecisions.ACCESS_GRANTED)
+                                        .build();
         } else {
-            Utils.setAccessDecision(response, "insufficient-credentials");
-            return registeredPrefix;
+            return AuthorizationDecision.builder()
+                                        .grant(AccessGrant.REGISTERED)
+                                        .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
+                                        .build();
         }
     }
 
