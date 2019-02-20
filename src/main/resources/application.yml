@@ -8,13 +8,12 @@ spring:
         - predicates:
             - Path=/beacon/**
           filters:
-            - StripPrefix=1
             - name: Gatekeeper
               args:
-                publicPrefix: ${gatekeeper.beaconServer.public-prefix}
+                strip-prefix: 1
+                public-prefix: ${gatekeeper.beaconServer.public-prefix}
                 registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
                 controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
-                redirectToLogin: false
             - PrependUriPath=${gatekeeper.beaconServer.url}
             - StripAuthHeader
             - name: AddBasicAuthHeader
@@ -26,13 +25,17 @@ spring:
         - predicates:
             - Path=/metadata/**
           filters:
-            - StripPrefix=1
             - name: Gatekeeper
               args:
-                publicPrefix: ${gatekeeper.metadataServer.public-prefix}
+                strip-prefix: 1
+                public-prefix: ${gatekeeper.metadataServer.public-prefix}
                 registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
                 controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
-                redirectToLogin: true
+                authChallengeHandler:
+                  name: LoginRedirect
+                  args:
+                    authorize-url: ${gatekeeper.metadataServer.auth-server.authorize-url}
+                    client-id: ${gatekeeper.metadataServer.auth-server.client-id}
             - PrependUriPath=${gatekeeper.metadataServer.url}
             - StripAuthHeader
             - name: AddBasicAuthHeader
@@ -48,6 +51,11 @@ gatekeeper:
     public-prefix: ""
     registered-prefix: ""
     controlled-prefix: "protected"
+    auth-server:
+      authorize-url: http://localhost:8081/oauth/authorize
+      token-url: http://localhost:8081/oauth/token
+      client-id: gatekeeper
+      client-secret: gatekeepersecret
   beaconServer:
     url: http://httpbin.org/anything
     public-prefix: public

@@ -6,7 +6,6 @@ import com.dnastack.gatekeeper.routing.ITokenAuthorizer.AuthorizationDecision;
 import com.dnastack.gatekeeper.routing.ITokenAuthorizer.StandardDecisions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.*;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,20 +13,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -62,10 +57,10 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
     private static void setAccessDecisionHints(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
         authorizationDecision.getDecisionInfos()
-                             .forEach(decisionInfo -> setAccessDecision(response, decisionInfo.getHeaderValue()));
+                             .forEach(decisionInfo -> setAccessDecisionHint(response, decisionInfo.getHeaderValue()));
     }
 
-    private static void setAccessDecision(ServerHttpResponse response, String decision) {
+    private static void setAccessDecisionHint(ServerHttpResponse response, String decision) {
         log.info("Access decision made: {}", decision);
         response.getHeaders().add("X-Gatekeeper-Access-Decision", decision);
     }
@@ -78,14 +73,29 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     }
 
     private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(Config config) {
-        final Boolean redirectToLogin = Optional.ofNullable(config.getRedirectToLogin()).orElse(false);
-        if (redirectToLogin) {
-            // TODO implement login redirect
-//            return new LoginRedirectAuthenticationChallengeHandler(URI.create("http://localhost:8081"));
-            return new NonInteractiveAuthenticationChallengeHandler();
+        final AuthChallengeHandlerConfig authChallengeHandler = config.getAuthChallengeHandler();
+        final String handlerNameSuffix = "AuthenticationChallengeHandler";
+        final String fallbackHandlerName = NonInteractiveAuthenticationChallengeHandler.class.getSimpleName()
+                                                                                             .replace(handlerNameSuffix,
+                                                                                                      "");
+        final String handlerName = (authChallengeHandler != null ?
+                authChallengeHandler.getName() :
+                fallbackHandlerName) + handlerNameSuffix;
+
+        final AuthenticationChallengeHandler<?> handler;
+        // TODO use bean lookup
+        if (handlerName.equals(LoginRedirectAuthenticationChallengeHandler.class.getSimpleName())) {
+            handler = new LoginRedirectAuthenticationChallengeHandler();
+        } else if (handlerName.equals(NonInteractiveAuthenticationChallengeHandler.class.getSimpleName())) {
+            handler = new NonInteractiveAuthenticationChallengeHandler();
         } else {
-            return new NonInteractiveAuthenticationChallengeHandler();
+            throw new IllegalArgumentException("Unrecognized AuthenticationChallengeHandler " + handlerName);
         }
+
+        final Map<String, Object> args = authChallengeHandler != null ? authChallengeHandler.getArgs() : null;
+        handler.loadConfig(args);
+
+        return handler;
     }
 
     private ITokenAuthorizer createTokenAuthorizer() {
@@ -175,7 +185,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         try {
             foundAuthToken = extractAuthToken(request);
         } catch (UnroutableRequestException e) {
-            return rewriteResponse(response, e.getStatus(), e.getMessage());
+            return WebFluxUtils.rewriteResponse(response, e.getStatus(), e.getMessage());
         }
 
         final AuthorizationDecision authorizationDecision = determineAccessGrant(tokenAuthorizer,
@@ -188,7 +198,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         if (StringUtils.isEmpty(pathPrefix)) {
             if (shouldDoAuthenticationChallenge(authorizationDecision)) {
                 authenticationChallengeHandler.addHeaders(response);
-                return authenticationChallengeHandler.handleBody(response);
+                return authenticationChallengeHandler.handleBody(exchange);
             } else {
                 return noContentForbidden(response, authorizationDecision);
             }
@@ -196,7 +206,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
             if (shouldDoAuthenticationChallenge(authorizationDecision)) {
                 authenticationChallengeHandler.addHeaders(response);
             }
-            return supportedAccessLevelResponse(exchange, chain, pathPrefix);
+            return supportedAccessLevelResponse(exchange, chain, pathPrefix, config.getStripPrefix());
         }
     }
 
@@ -208,42 +218,55 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
     private Mono<Void> supportedAccessLevelResponse(ServerWebExchange exchange,
                                                     GatewayFilterChain chain,
-                                                    String pathPrefix) {
+                                                    String pathPrefix, int stripPrefix) {
 
         ServerHttpRequest request = exchange.getRequest();
         final String incomingPath = request.getURI().getPath();
-        final String path = "/" + pathWithNoLeadingOrTrailingSlashes(pathPrefix) + incomingPath;
+        final String path = normalizePath(pathPrefix) + stripPrefix(stripPrefix, incomingPath);
         final ServerHttpRequest newRequest = request.mutate().path(path).build();
 
         return chain.filter(exchange.mutate().request(newRequest).build());
     }
 
+    private String stripPrefix(int stripPrefix, String incomingPath) {
+        return Arrays.stream(incomingPath.split("/"))
+                     .filter(s -> !s.isEmpty())
+                     .skip(stripPrefix)
+                     .reduce("",
+                             (part1, part2) -> part1 + "/" + part2);
+    }
+
     private Mono<Void> noContentForbidden(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
         log.debug("Prefix is empty. Sending 403 auth challenge.");
-        return rewriteResponse(response, 403,
-                               format("%s requests not accepted.", authorizationDecision.getGrant().toString()));
+        return WebFluxUtils.rewriteResponse(response, 403,
+                                            format("%s requests not accepted.", authorizationDecision.getGrant().toString()));
 
     }
 
-    private String pathWithNoLeadingOrTrailingSlashes(String pathPrefix) {
-        return Arrays.stream(pathPrefix.split("/"))
+    /**
+     * @param pathPart Part of a path. Must not be null.
+     * @return Given part of path normalized to be empty or else have a leading slash and no trailing slash.
+     */
+    private String normalizePath(String pathPart) {
+        return Arrays.stream(pathPart.split("/"))
+                     .filter(s -> !s.isEmpty())
                      .reduce("",
-                                                                        (part1, part2) -> part1 + "/" + part2);
-    }
-
-    private Mono<Void> rewriteResponse(ServerHttpResponse response, int status, String message) {
-        final DataBuffer buffer = response.bufferFactory().wrap(message.getBytes(StandardCharsets.UTF_8));
-        response.setStatusCode(HttpStatus.resolve(status));
-
-        return response.writeWith(Flux.just(buffer));
+                             (part1, part2) -> part1 + "/" + part2);
     }
 
     @Data
     public static class Config {
+        private int stripPrefix = 1;
         private String publicPrefix;
         private String registeredPrefix;
         private String controlledPrefix;
-        private Boolean redirectToLogin;
+        private AuthChallengeHandlerConfig authChallengeHandler;
+    }
+
+    @Data
+    public static class AuthChallengeHandlerConfig {
+        private String name;
+        private Map<String, Object> args;
     }
 
     @Data
@@ -251,34 +274,4 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         private String accountId, issuer, email;
     }
 
-    private class NonInteractiveAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
-        @Override
-        public Mono<Void> handleBody(ServerHttpResponse response) {
-            log.debug("Prefix is empty. Sending 401 auth challenge.");
-            return rewriteResponse(response, 401, "PUBLIC requests not accepted.");
-
-        }
-
-        @Override
-        public void addHeaders(ServerHttpResponse response) {
-            response.getHeaders().add("WWW-Authenticate", "Bearer");
-        }
-    }
-
-    @AllArgsConstructor
-    private class LoginRedirectAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
-        private URI location;
-
-        @Override
-        public Mono<Void> handleBody(ServerHttpResponse response) {
-            log.debug("Prefix is empty. Sending 401 auth challenge.");
-            return rewriteResponse(response, 307, "");
-
-        }
-
-        @Override
-        public void addHeaders(ServerHttpResponse response) {
-            response.getHeaders().setLocation(location);
-        }
-    }
 }
