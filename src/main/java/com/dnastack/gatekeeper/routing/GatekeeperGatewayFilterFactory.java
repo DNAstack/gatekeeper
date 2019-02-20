@@ -6,6 +6,7 @@ import com.dnastack.gatekeeper.routing.ITokenAuthorizer.AuthorizationDecision;
 import com.dnastack.gatekeeper.routing.ITokenAuthorizer.StandardDecisions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 
@@ -58,19 +60,9 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         super(Config.class);
     }
 
-    private static void setAccessDecision(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
+    private static void setAccessDecisionHints(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
         authorizationDecision.getDecisionInfos()
                              .forEach(decisionInfo -> setAccessDecision(response, decisionInfo.getHeaderValue()));
-        if (AccessGrant.PUBLIC.equals(authorizationDecision.getGrant())
-                && authorizationDecision.getDecisionInfos()
-                                        .contains(
-                                                StandardDecisions.REQUIRES_CREDENTIALS)) {
-            addAuthenticationChallengeHeaders(response);
-        }
-    }
-
-    private static void addAuthenticationChallengeHeaders(ServerHttpResponse response) {
-        response.getHeaders().add("WWW-Authenticate", "Bearer");
     }
 
     private static void setAccessDecision(ServerHttpResponse response, String decision) {
@@ -80,13 +72,31 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
     @Override
     public GatewayFilter apply(Config config) {
-        TokenAuthorizerFactory tokenAuthorizerFactory = new TokenAuthorizerFactory();
-        final ITokenAuthorizer tokenAuthorizer = tokenAuthorizerFactory.getTokenAuthorizer(config,
-                                                                                           tokenAuthorizationMethod,
-                                                                                           requiredScopeList,
-                                                                                           emailWhitelist,
-                                                                                           objectMapper);
-        return (exchange, chain) -> doFilter(config, tokenAuthorizer, exchange, chain);
+        final ITokenAuthorizer tokenAuthorizer = createTokenAuthorizer();
+        final AuthenticationChallengeHandler authenticationChallengeHandler = createUnauthenticatedTokenHandler(config);
+        return (exchange, chain) -> doFilter(config, tokenAuthorizer, authenticationChallengeHandler, exchange, chain);
+    }
+
+    private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(Config config) {
+        final Boolean redirectToLogin = Optional.ofNullable(config.getRedirectToLogin()).orElse(false);
+        if (redirectToLogin) {
+            // TODO implement login redirect
+//            return new LoginRedirectAuthenticationChallengeHandler(URI.create("http://localhost:8081"));
+            return new NonInteractiveAuthenticationChallengeHandler();
+        } else {
+            return new NonInteractiveAuthenticationChallengeHandler();
+        }
+    }
+
+    private ITokenAuthorizer createTokenAuthorizer() {
+        if (tokenAuthorizationMethod.equals("email")) {
+            return new TokenAuthorizerEmailImpl(emailWhitelist, objectMapper);
+        } else if (tokenAuthorizationMethod.equals("scope")) {
+            return new TokenAuthorizerScopeImpl(requiredScopeList);
+        } else {
+            throw new IllegalArgumentException(format("No suitable token authorizer found for method [%s].",
+                                                      tokenAuthorizationMethod));
+        }
     }
 
     private AuthorizationDecision determineAccessGrant(ITokenAuthorizer tokenAuthorizer, String authToken) {
@@ -158,10 +168,9 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         }
     }
 
-    private Mono<Void> doFilter(Config config, ITokenAuthorizer tokenAuthorizer, ServerWebExchange exchange, GatewayFilterChain chain) {
+    private Mono<Void> doFilter(Config config, ITokenAuthorizer tokenAuthorizer, AuthenticationChallengeHandler authenticationChallengeHandler, ServerWebExchange exchange, GatewayFilterChain chain) {
         final ServerHttpRequest request = exchange.getRequest();
         final ServerHttpResponse response = exchange.getResponse();
-        final URI incomingUri = request.getURI();
         final Optional<String> foundAuthToken;
         try {
             foundAuthToken = extractAuthToken(request);
@@ -173,41 +182,53 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                                                                                  foundAuthToken.orElse(null));
 
         // Add headers with decision info here before it's forgotten.
-        setAccessDecision(response, authorizationDecision);
+        setAccessDecisionHints(response, authorizationDecision);
 
         final String pathPrefix = authorizationDecision.getGrant().getConfiguredPrefix(config);
         if (StringUtils.isEmpty(pathPrefix)) {
-            log.debug("Prefix is empty. Sending 401 auth challenge.");
-            return hardAuthChallenge(response, "Anonymous requests not accepted.");
-        } else {
-            final String path;
-            /*
-             * A path prefix of "/" is encoded to mean that the query should go the root of the beacon url.
-             * No further prefixes are to be added to beacon url in that case.
-             */
-            if (StringUtils.isEmpty(pathPrefix)) {
-                /* If we're here, it means we're presuming the beacon only accepts controlled access */
-                log.debug("Path prefix is empty, not allowing access.");
-                return hardAuthChallenge(response, "Unauthorized requests not accepted.");
+            if (shouldDoAuthenticationChallenge(authorizationDecision)) {
+                authenticationChallengeHandler.addHeaders(response);
+                return authenticationChallengeHandler.handleBody(response);
             } else {
-                path = "/" + pathWithNoLeadingOrTrailingSlashes(pathPrefix) + incomingUri.getPath();
+                return noContentForbidden(response, authorizationDecision);
             }
-
-            final ServerHttpRequest newRequest = request.mutate().path(path).build();
-
-            return chain.filter(exchange.mutate().request(newRequest).build());
+        } else {
+            if (shouldDoAuthenticationChallenge(authorizationDecision)) {
+                authenticationChallengeHandler.addHeaders(response);
+            }
+            return supportedAccessLevelResponse(exchange, chain, pathPrefix);
         }
+    }
+
+    private boolean shouldDoAuthenticationChallenge(AuthorizationDecision authorizationDecision) {
+        return Stream.of(StandardDecisions.REQUIRES_CREDENTIALS,
+                         StandardDecisions.EXPIRED_CREDENTIALS)
+                     .anyMatch(decision -> authorizationDecision.getDecisionInfos().contains(decision));
+    }
+
+    private Mono<Void> supportedAccessLevelResponse(ServerWebExchange exchange,
+                                                    GatewayFilterChain chain,
+                                                    String pathPrefix) {
+
+        ServerHttpRequest request = exchange.getRequest();
+        final String incomingPath = request.getURI().getPath();
+        final String path = "/" + pathWithNoLeadingOrTrailingSlashes(pathPrefix) + incomingPath;
+        final ServerHttpRequest newRequest = request.mutate().path(path).build();
+
+        return chain.filter(exchange.mutate().request(newRequest).build());
+    }
+
+    private Mono<Void> noContentForbidden(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
+        log.debug("Prefix is empty. Sending 403 auth challenge.");
+        return rewriteResponse(response, 403,
+                               format("%s requests not accepted.", authorizationDecision.getGrant().toString()));
+
     }
 
     private String pathWithNoLeadingOrTrailingSlashes(String pathPrefix) {
         return Arrays.stream(pathPrefix.split("/"))
                      .reduce("",
                                                                         (part1, part2) -> part1 + "/" + part2);
-    }
-
-    private Mono<Void> hardAuthChallenge(ServerHttpResponse response, String message) {
-        return rewriteResponse(response, 401, message);
-
     }
 
     private Mono<Void> rewriteResponse(ServerHttpResponse response, int status, String message) {
@@ -222,10 +243,42 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         private String publicPrefix;
         private String registeredPrefix;
         private String controlledPrefix;
+        private Boolean redirectToLogin;
     }
 
     @Data
     static class Account {
         private String accountId, issuer, email;
+    }
+
+    private class NonInteractiveAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
+        @Override
+        public Mono<Void> handleBody(ServerHttpResponse response) {
+            log.debug("Prefix is empty. Sending 401 auth challenge.");
+            return rewriteResponse(response, 401, "PUBLIC requests not accepted.");
+
+        }
+
+        @Override
+        public void addHeaders(ServerHttpResponse response) {
+            response.getHeaders().add("WWW-Authenticate", "Bearer");
+        }
+    }
+
+    @AllArgsConstructor
+    private class LoginRedirectAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
+        private URI location;
+
+        @Override
+        public Mono<Void> handleBody(ServerHttpResponse response) {
+            log.debug("Prefix is empty. Sending 401 auth challenge.");
+            return rewriteResponse(response, 307, "");
+
+        }
+
+        @Override
+        public void addHeaders(ServerHttpResponse response) {
+            response.getHeaders().setLocation(location);
+        }
     }
 }

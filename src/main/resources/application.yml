@@ -14,6 +14,7 @@ spring:
                 publicPrefix: ${gatekeeper.beaconServer.public-prefix}
                 registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
                 controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
+                redirectToLogin: false
             - PrependUriPath=${gatekeeper.beaconServer.url}
             - StripAuthHeader
             - name: AddBasicAuthHeader
@@ -31,6 +32,7 @@ spring:
                 publicPrefix: ${gatekeeper.metadataServer.public-prefix}
                 registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
                 controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
+                redirectToLogin: true
             - PrependUriPath=${gatekeeper.metadataServer.url}
             - StripAuthHeader
             - name: AddBasicAuthHeader
