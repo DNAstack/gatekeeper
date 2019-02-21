@@ -45,7 +45,8 @@ public class Gatekeeper {
                                                          .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
                                                          .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
                                                          .build();
-        } catch (JwtException ex) {
+        } catch (JwtException | IllegalArgumentException ex) {
+            // An IAE exception is thrown when we are using the HS algorithm but the token is signed with RSA
             return ITokenAuthorizer.AuthorizationDecision.builder()
                                                          .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
                                                          .decisionInfo(StandardDecisions.MALFORMED_CREDENTIALS)
