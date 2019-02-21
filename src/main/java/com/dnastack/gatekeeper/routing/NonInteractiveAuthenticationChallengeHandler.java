@@ -6,7 +6,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @Slf4j
-class NonInteractiveAuthenticationChallengeHandler implements AuthenticationChallengeHandler<Object> {
+class NonInteractiveAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
     @Override
     public Mono<Void> handleBody(ServerWebExchange exchange) {
         log.debug("Prefix is empty. Sending 401 auth challenge.");

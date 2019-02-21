@@ -22,7 +22,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -73,16 +72,16 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     }
 
     private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(Config config) {
-        final AuthChallengeHandlerConfig authChallengeHandler = config.getAuthChallengeHandler();
+        final String authChallengeHandler = config.getAuthChallengeHandler();
         final String handlerNameSuffix = "AuthenticationChallengeHandler";
         final String fallbackHandlerName = NonInteractiveAuthenticationChallengeHandler.class.getSimpleName()
                                                                                              .replace(handlerNameSuffix,
                                                                                                       "");
         final String handlerName = (authChallengeHandler != null ?
-                authChallengeHandler.getName() :
+                authChallengeHandler :
                 fallbackHandlerName) + handlerNameSuffix;
 
-        final AuthenticationChallengeHandler<?> handler;
+        final AuthenticationChallengeHandler handler;
         // TODO use bean lookup
         if (handlerName.equals(LoginRedirectAuthenticationChallengeHandler.class.getSimpleName())) {
             handler = new LoginRedirectAuthenticationChallengeHandler();
@@ -91,9 +90,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         } else {
             throw new IllegalArgumentException("Unrecognized AuthenticationChallengeHandler " + handlerName);
         }
-
-        final Map<String, Object> args = authChallengeHandler != null ? authChallengeHandler.getArgs() : null;
-        handler.loadConfig(args);
 
         return handler;
     }
@@ -260,13 +256,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         private String publicPrefix;
         private String registeredPrefix;
         private String controlledPrefix;
-        private AuthChallengeHandlerConfig authChallengeHandler;
-    }
-
-    @Data
-    public static class AuthChallengeHandlerConfig {
-        private String name;
-        private Map<String, Object> args;
+        private String authChallengeHandler;
     }
 
     @Data

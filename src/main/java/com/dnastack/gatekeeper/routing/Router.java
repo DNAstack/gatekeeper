@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.Optional;
 
 import static com.dnastack.gatekeeper.header.XForwardUtil.getExternalPath;
+import static java.lang.String.format;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.MediaType.*;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -45,12 +46,34 @@ public class Router {
     @Value("${gatekeeper.metadataServer.auth-server.client-secret}")
     private String clientSecret;
 
+    @Value("${gatekeeper.metadataServer.auth-server.authorize-url}")
+    private String metadataServerAuthUrl;
+
     @Bean
     RouterFunction<ServerResponse> index() {
         return RouterFunctions.route(GET("/"),
                                      request -> ok()
                                              .contentType(TEXT_HTML)
                                              .syncBody(index));
+    }
+
+    @Bean
+    RouterFunction<ServerResponse> apiLogin() {
+        return RouterFunctions.route(GET("/api/identity/login"), this::handleLoginRequest);
+    }
+
+    private Mono<ServerResponse> handleLoginRequest(ServerRequest serverRequest) {
+        final String state = serverRequest.queryParam("state").orElse("/metadata");
+        final String fullAuthUrl = format("%s?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
+                                          metadataServerAuthUrl,
+                                          clientId,
+                                          redirectUri(serverRequest),
+                                          state);
+        return ServerResponse.temporaryRedirect(URI.create(fullAuthUrl)).build();
+    }
+
+    private String redirectUri(ServerRequest request) {
+        return getExternalPath(request, "/api/identity/token");
     }
 
     @Bean

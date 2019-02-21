@@ -31,11 +31,7 @@ spring:
                 public-prefix: ${gatekeeper.metadataServer.public-prefix}
                 registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
                 controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
-                authChallengeHandler:
-                  name: LoginRedirect
-                  args:
-                    authorize-url: ${gatekeeper.metadataServer.auth-server.authorize-url}
-                    client-id: ${gatekeeper.metadataServer.auth-server.client-id}
+                authChallengeHandler: LoginRedirect
             - PrependUriPath=${gatekeeper.metadataServer.url}
             - StripAuthHeader
             - name: AddBasicAuthHeader
