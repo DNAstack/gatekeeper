@@ -2,11 +2,11 @@ package com.dnastack.gatekeeper;
 
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import org.hamcrest.Matcher;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.security.Key;
 import java.time.Instant;
 import java.util.Date;
 
@@ -55,15 +55,16 @@ public class TokenE2eTest extends BaseE2eTest {
         // Give option to override when running locally
         developmentPrivateKey = optionalEnv("E2E_DEVELOPMENT_KEY", DEVELOPMENT_PRIVATE_KEY);
 
-        final Key key;
         if (alg.toLowerCase().startsWith("rs")) {
-            key = RsaKeyHelper.parsePrivateKey(rawKey);
+            jwtBuilder = Jwts.builder()
+                             .signWith(RsaKeyHelper.parsePrivateKey(rawKey));
+        } else if (alg.toLowerCase().equals("hs256")) {
+            jwtBuilder = Jwts.builder()
+                             .signWith(SignatureAlgorithm.HS256, rawKey);
         } else {
             throw new IllegalArgumentException(format("Unrecognized signing algorithm [%s]", alg));
         }
 
-        jwtBuilder = Jwts.builder()
-                         .signWith(key);
     }
 
     @Test
