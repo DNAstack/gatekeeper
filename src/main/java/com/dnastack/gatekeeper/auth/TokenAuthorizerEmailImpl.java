@@ -1,6 +1,7 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.auth;
 
-import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
+import com.dnastack.gatekeeper.config.Account;
+import com.dnastack.gatekeeper.config.InboundEmailWhitelistConfiguration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -13,7 +14,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
 
-    public static final TypeReference<List<GatekeeperGatewayFilterFactory.Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<GatekeeperGatewayFilterFactory.Account>>() {
+    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<Account>>() {
 
     };
 
@@ -22,7 +23,7 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
     private InboundEmailWhitelistConfiguration emailWhitelist;
     private ObjectMapper objectMapper;
 
-    TokenAuthorizerEmailImpl(InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
+    public TokenAuthorizerEmailImpl(InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
         this.emailWhitelist = emailWhitelist;
         this.objectMapper = objectMapper;
     }
@@ -52,17 +53,17 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
         return emailWhitelist.getEmailWhitelist().contains(email);
     }
 
-    private Stream<String> accountEmail(GatekeeperGatewayFilterFactory.Account account) {
+    private Stream<String> accountEmail(Account account) {
         final String email = account.getEmail();
         return (email == null) ? Stream.empty() : Stream.of(email);
     }
 
-    private boolean issuedByGoogle(GatekeeperGatewayFilterFactory.Account account) {
+    private boolean issuedByGoogle(Account account) {
         return GOOGLE_ISSUER_URL.equals(account.getIssuer());
     }
 
     private Stream<String> extractGoogleEmailAddresses(Claims claims) {
-        final List<GatekeeperGatewayFilterFactory.Account> accounts = objectMapper.convertValue(claims.get("accounts", List.class),
+        final List<Account> accounts = objectMapper.convertValue(claims.get("accounts", List.class),
                                                                                                 LIST_OF_ACCOUNT_TYPE);
         return accounts.stream()
                 .filter(this::issuedByGoogle)

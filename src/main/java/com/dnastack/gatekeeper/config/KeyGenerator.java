@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.auth;
+package com.dnastack.gatekeeper.config;
 
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;

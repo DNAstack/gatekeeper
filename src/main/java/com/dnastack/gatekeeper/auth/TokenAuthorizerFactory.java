@@ -1,6 +1,7 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.auth;
 
-import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
+import com.dnastack.gatekeeper.config.InboundEmailWhitelistConfiguration;
+import com.dnastack.gatekeeper.routing.GatekeeperGatewayFilterFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;

@@ -1,15 +1,11 @@
 package com.dnastack.gatekeeper.routing;
 
-import com.dnastack.gatekeeper.auth.InboundEmailWhitelistConfiguration;
-import com.dnastack.gatekeeper.routing.ITokenAuthorizer.AccessGrant;
-import com.dnastack.gatekeeper.routing.ITokenAuthorizer.AuthorizationDecision;
-import com.dnastack.gatekeeper.routing.ITokenAuthorizer.StandardDecisions;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.*;
+import com.dnastack.gatekeeper.auth.Gatekeeper;
+import com.dnastack.gatekeeper.auth.ITokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -21,7 +17,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -31,24 +26,8 @@ import static java.lang.String.format;
 @Slf4j
 public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperGatewayFilterFactory.Config> {
 
-    @Value("${gatekeeper.token.authorization.method}")
-    private String tokenAuthorizationMethod;
-
-    // Can't default to empty list when we specify value in application.yml
-    @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
-    private List<String> acceptedAudiences;
-
-    @Value("${gatekeeper.required.scope}")
-    private List<String> requiredScopeList;
-
     @Autowired
-    private InboundEmailWhitelistConfiguration emailWhitelist;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private JwtParser jwtParser;
+    private Gatekeeper gatekeeper;
 
     public GatekeeperGatewayFilterFactory() {
         super(Config.class);
@@ -66,9 +45,8 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
     @Override
     public GatewayFilter apply(Config config) {
-        final ITokenAuthorizer tokenAuthorizer = createTokenAuthorizer();
         final AuthenticationChallengeHandler authenticationChallengeHandler = createUnauthenticatedTokenHandler(config);
-        return (exchange, chain) -> doFilter(config, tokenAuthorizer, authenticationChallengeHandler, exchange, chain);
+        return (exchange, chain) -> doFilter(config, authenticationChallengeHandler, exchange, chain);
     }
 
     private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(Config config) {
@@ -94,65 +72,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         return handler;
     }
 
-    private ITokenAuthorizer createTokenAuthorizer() {
-        if (tokenAuthorizationMethod.equals("email")) {
-            return new TokenAuthorizerEmailImpl(emailWhitelist, objectMapper);
-        } else if (tokenAuthorizationMethod.equals("scope")) {
-            return new TokenAuthorizerScopeImpl(requiredScopeList);
-        } else {
-            throw new IllegalArgumentException(format("No suitable token authorizer found for method [%s].",
-                                                      tokenAuthorizationMethod));
-        }
-    }
-
-    private AuthorizationDecision determineAccessGrant(ITokenAuthorizer tokenAuthorizer, String authToken) {
-        if (authToken == null) {
-            log.debug("No auth found. Sending auth challenge.");
-            return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.PUBLIC)
-                                        .decisionInfo(StandardDecisions.REQUIRES_CREDENTIALS)
-                                        .build();
-        }
-
-        try {
-            final Jws<Claims> jws = parseAndValidateJws(authToken);
-
-            return tokenAuthorizer.authorizeToken(jws);
-        } catch (ExpiredJwtException ex) {
-            log.error("Caught expired exception");
-            return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.PUBLIC)
-                                        .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
-                                        .build();
-        } catch (JwtException ex) {
-            return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.PUBLIC)
-                                        .decisionInfo(new ITokenAuthorizer.CustomDecisionInfo("Invalid token: " + ex))
-                                        .build();
-        }
-    }
-
-    private Jws<Claims> parseAndValidateJws(String authToken) {
-        final Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
-        if (acceptedAudiences.isEmpty()) {
-            log.debug("Not validating token audience, because no audiences are configured.");
-        } else {
-            final String tokenAudience = Optional.of(jws)
-                                                 .map(Jws::getBody)
-                                                 .map(Claims::getAudience)
-                                                 .orElseThrow(() -> new JwtException("No audience specified in token."));
-            final Optional<String> validAudience = acceptedAudiences.stream().filter(tokenAudience::equals).findAny();
-            if (validAudience.isPresent()) {
-                log.debug("Token audience successfully validated [{}]", validAudience.get());
-            } else {
-                throw new JwtException(format("Token audience [%s] is invalid.", tokenAudience));
-            }
-        }
-
-        log.info("Validated signature of inbound token {}", jws);
-        return jws;
-    }
-
     private Optional<String> extractAuthToken(ServerHttpRequest request) throws UnroutableRequestException {
         final String authHeader = request.getHeaders().getFirst("authorization");
 
@@ -174,7 +93,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         }
     }
 
-    private Mono<Void> doFilter(Config config, ITokenAuthorizer tokenAuthorizer, AuthenticationChallengeHandler authenticationChallengeHandler, ServerWebExchange exchange, GatewayFilterChain chain) {
+    private Mono<Void> doFilter(Config config, AuthenticationChallengeHandler authenticationChallengeHandler, ServerWebExchange exchange, GatewayFilterChain chain) {
         final ServerHttpRequest request = exchange.getRequest();
         final ServerHttpResponse response = exchange.getResponse();
         final Optional<String> foundAuthToken;
@@ -184,8 +103,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
             return WebFluxUtils.rewriteResponse(response, e.getStatus(), e.getMessage());
         }
 
-        final AuthorizationDecision authorizationDecision = determineAccessGrant(tokenAuthorizer,
-                                                                                 foundAuthToken.orElse(null));
+        final AuthorizationDecision authorizationDecision = gatekeeper.determineAccessGrant(foundAuthToken.orElse(null));
 
         // Add headers with decision info here before it's forgotten.
         setAccessDecisionHints(response, authorizationDecision);
@@ -235,7 +153,8 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     private Mono<Void> noContentForbidden(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
         log.debug("Prefix is empty. Sending 403 auth challenge.");
         return WebFluxUtils.rewriteResponse(response, 403,
-                                            format("%s requests not accepted.", authorizationDecision.getGrant().toString()));
+                                            format("%s requests not accepted.",
+                                                   authorizationDecision.getGrant().toString()));
 
     }
 
@@ -257,11 +176,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         private String registeredPrefix;
         private String controlledPrefix;
         private String authChallengeHandler;
-    }
-
-    @Data
-    static class Account {
-        private String accountId, issuer, email;
     }
 
 }

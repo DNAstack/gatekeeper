@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.auth;
+package com.dnastack.gatekeeper.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

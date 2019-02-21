@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
@@ -13,7 +13,7 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
 
     private List<String> requiredScopeList;
 
-    TokenAuthorizerScopeImpl(List<String> requiredScopeList) {
+    public TokenAuthorizerScopeImpl(List<String> requiredScopeList) {
         this.requiredScopeList = requiredScopeList;
     }
 

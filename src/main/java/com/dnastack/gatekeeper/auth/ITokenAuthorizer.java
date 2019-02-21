@@ -1,5 +1,6 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.auth;
 
+import com.dnastack.gatekeeper.routing.GatekeeperGatewayFilterFactory;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import lombok.Builder;
