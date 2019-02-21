@@ -111,17 +111,30 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         final String pathPrefix = authorizationDecision.getGrant().getConfiguredPrefix(config);
         if (StringUtils.isEmpty(pathPrefix)) {
             if (shouldDoAuthenticationChallenge(authorizationDecision)) {
-                authenticationChallengeHandler.addHeaders(response);
-                return authenticationChallengeHandler.handleBody(exchange);
+                return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
             } else {
                 return noContentForbidden(response, authorizationDecision);
             }
+        } else if (isInvalidCredential(authorizationDecision)) {
+            return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
         } else {
             if (shouldDoAuthenticationChallenge(authorizationDecision)) {
                 authenticationChallengeHandler.addHeaders(response);
             }
             return supportedAccessLevelResponse(exchange, chain, pathPrefix, config.getStripPrefix());
         }
+
+    }
+
+    private Mono<Void> doFullAuthChallenge(AuthenticationChallengeHandler authenticationChallengeHandler, ServerWebExchange exchange, ServerHttpResponse response) {
+        authenticationChallengeHandler.addHeaders(response);
+        return authenticationChallengeHandler.handleBody(exchange);
+    }
+
+    private boolean isInvalidCredential(AuthorizationDecision authorizationDecision) {
+        return Stream.of(StandardDecisions.EXPIRED_CREDENTIALS,
+                         StandardDecisions.MALFORMED_CREDENTIALS)
+                     .anyMatch(decision -> authorizationDecision.getDecisionInfos().contains(decision));
     }
 
     private boolean shouldDoAuthenticationChallenge(AuthorizationDecision authorizationDecision) {
