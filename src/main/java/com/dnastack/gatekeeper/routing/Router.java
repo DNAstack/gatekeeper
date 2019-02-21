@@ -96,8 +96,7 @@ public class Router {
         final AuthorizationDecision authDecision = gatekeeper.determineAccessGrant(token);
         return !authDecision.getDecisionInfos()
                             .stream()
-                            .anyMatch(info -> EXPIRED_CREDENTIALS.equals(info) || MALFORMED_CREDENTIALS.equals(
-                                    info));
+                            .anyMatch(info -> EXPIRED_CREDENTIALS.equals(info) || MALFORMED_CREDENTIALS.equals(info));
     }
 
     private String redirectUri(ServerRequest request) {

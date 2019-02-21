@@ -126,7 +126,8 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
     private boolean shouldDoAuthenticationChallenge(AuthorizationDecision authorizationDecision) {
         return Stream.of(StandardDecisions.REQUIRES_CREDENTIALS,
-                         StandardDecisions.EXPIRED_CREDENTIALS)
+                         StandardDecisions.EXPIRED_CREDENTIALS,
+                         StandardDecisions.MALFORMED_CREDENTIALS)
                      .anyMatch(decision -> authorizationDecision.getDecisionInfos().contains(decision));
     }
 
