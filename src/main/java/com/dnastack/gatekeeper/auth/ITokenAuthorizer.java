@@ -46,6 +46,7 @@ public interface ITokenAuthorizer {
 
     enum StandardDecisions implements DecisionInfo {
         EXPIRED_CREDENTIALS("expired-credentials"),
+        MALFORMED_CREDENTIALS("malformed-credentials"),
         REQUIRES_CREDENTIALS("requires-credentials"),
         INSUFFICIENT_CREDENTIALS("insufficient-credentials"),
         ACCESS_GRANTED("access-granted");

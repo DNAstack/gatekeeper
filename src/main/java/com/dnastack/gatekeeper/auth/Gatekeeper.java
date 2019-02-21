@@ -1,5 +1,6 @@
 package com.dnastack.gatekeeper.auth;
 
+import com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ public class Gatekeeper {
             log.debug("No auth found. Sending auth challenge.");
             return ITokenAuthorizer.AuthorizationDecision.builder()
                                                          .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
-                                                         .decisionInfo(ITokenAuthorizer.StandardDecisions.REQUIRES_CREDENTIALS)
+                                                         .decisionInfo(StandardDecisions.REQUIRES_CREDENTIALS)
                                                          .build();
         }
 
@@ -42,11 +43,12 @@ public class Gatekeeper {
             log.error("Caught expired exception");
             return ITokenAuthorizer.AuthorizationDecision.builder()
                                                          .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
-                                                         .decisionInfo(ITokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS)
+                                                         .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
                                                          .build();
         } catch (JwtException ex) {
             return ITokenAuthorizer.AuthorizationDecision.builder()
                                                          .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
+                                                         .decisionInfo(StandardDecisions.MALFORMED_CREDENTIALS)
                                                          .decisionInfo(new ITokenAuthorizer.CustomDecisionInfo("Invalid token: " + ex))
                                                          .build();
         }

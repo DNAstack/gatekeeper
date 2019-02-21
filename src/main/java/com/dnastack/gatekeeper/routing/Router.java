@@ -1,13 +1,18 @@
 package com.dnastack.gatekeeper.routing;
 
+import com.dnastack.gatekeeper.auth.Gatekeeper;
+import com.dnastack.gatekeeper.auth.ITokenAuthorizer.AuthorizationDecision;
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpCookie;
+import org.springframework.http.ResponseCookie;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -23,6 +28,8 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Optional;
 
+import static com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS;
+import static com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions.MALFORMED_CREDENTIALS;
 import static com.dnastack.gatekeeper.header.XForwardUtil.getExternalPath;
 import static java.lang.String.format;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -34,6 +41,7 @@ import static org.springframework.web.reactive.function.server.ServerResponse.*;
 @Configuration
 public class Router {
 
+    public static final String ACCESS_TOKEN_COOKIE_NAME = "access_token";
     @Value("classpath:/static/index.html")
     private Resource index;
 
@@ -49,6 +57,9 @@ public class Router {
     @Value("${gatekeeper.metadataServer.auth-server.authorize-url}")
     private String metadataServerAuthUrl;
 
+    @Autowired
+    private Gatekeeper gatekeeper;
+
     @Bean
     RouterFunction<ServerResponse> index() {
         return RouterFunctions.route(GET("/"),
@@ -63,13 +74,30 @@ public class Router {
     }
 
     private Mono<ServerResponse> handleLoginRequest(ServerRequest serverRequest) {
+        final Optional<String> foundToken = Optional.ofNullable(serverRequest.cookies()
+                                                                             .getFirst(ACCESS_TOKEN_COOKIE_NAME))
+                                                    .map(HttpCookie::getValue);
         final String state = serverRequest.queryParam("state").orElse("/metadata");
-        final String fullAuthUrl = format("%s?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
-                                          metadataServerAuthUrl,
-                                          clientId,
-                                          redirectUri(serverRequest),
-                                          state);
-        return ServerResponse.temporaryRedirect(URI.create(fullAuthUrl)).build();
+        if (foundToken.filter(this::isValidToken).isPresent()) {
+            final String token = foundToken.get();
+            final String targetUri = format("%s?access_token=%s", getExternalPath(serverRequest, state), token);
+            return temporaryRedirect(URI.create(targetUri)).build();
+        } else {
+            final String fullAuthUrl = format("%s?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
+                                              metadataServerAuthUrl,
+                                              clientId,
+                                              redirectUri(serverRequest),
+                                              state);
+            return temporaryRedirect(URI.create(fullAuthUrl)).build();
+        }
+    }
+
+    private boolean isValidToken(String token) {
+        final AuthorizationDecision authDecision = gatekeeper.determineAccessGrant(token);
+        return !authDecision.getDecisionInfos()
+                            .stream()
+                            .anyMatch(info -> EXPIRED_CREDENTIALS.equals(info) || MALFORMED_CREDENTIALS.equals(
+                                    info));
     }
 
     private String redirectUri(ServerRequest request) {
@@ -110,7 +138,11 @@ public class Router {
     private Mono<ServerResponse> successfulUserTokenResponse(ServerRequest request, String token) {
         final String redirectPath = request.queryParam("state").orElse("/metadata");
         final URI redirectUri = URI.create(getExternalPath(request, redirectPath) + "?access_token=" + token);
-        return temporaryRedirect(redirectUri).build();
+        return temporaryRedirect(redirectUri).cookie(ResponseCookie.from(ACCESS_TOKEN_COOKIE_NAME, token)
+                                                                   .domain(redirectUri.getHost())
+                                                                   .path("/")
+                                                                   .build())
+                                             .build();
     }
 
     private Optional<String> extractToken(String body) {
