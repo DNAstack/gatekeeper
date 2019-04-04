@@ -222,18 +222,32 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
         ServerHttpRequest request = exchange.getRequest();
         final String incomingPath = request.getURI().getPath();
-        final String path = normalizePath(pathPrefix) + stripPrefix(stripPrefix, incomingPath);
+        String path = normalizePath(pathPrefix) + stripPrefixKeepingALeadingSlashAtLeast(stripPrefix, incomingPath);
         final ServerHttpRequest newRequest = request.mutate().path(path).build();
 
         return chain.filter(exchange.mutate().request(newRequest).build());
     }
 
-    private String stripPrefix(int stripPrefix, String incomingPath) {
-        return Arrays.stream(incomingPath.split("/"))
+    /**
+     * Helper function to remove the given number of prefixes from the incoming path.
+     * Returns at least a single slash if removal of all prefixes evaluates to
+     * an empty string.
+     *
+     * @param stripPrefix
+     * @param incomingPath
+     * @return Removes the "n" number of prefixes from the input string and returns at least a single "/"
+     */
+    private String stripPrefixKeepingALeadingSlashAtLeast(int stripPrefix, String incomingPath) {
+        String result =  Arrays.stream(incomingPath.split("/"))
                      .filter(s -> !s.isEmpty())
                      .skip(stripPrefix)
                      .reduce("",
                              (part1, part2) -> part1 + "/" + part2);
+
+        if (result.equals("")) {
+            result = "/";
+        }
+        return result;
     }
 
     private Mono<Void> noContentForbidden(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
