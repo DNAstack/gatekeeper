@@ -233,18 +233,18 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
      * Returns at least a single slash if removal of all prefixes evaluates to
      * an empty string.
      *
-     * @param stripPrefix
+     * @param n
      * @param incomingPath
      * @return Removes the "n" number of prefixes from the input string and returns at least a single "/"
      */
-    private String stripPrefixKeepingALeadingSlashAtLeast(int stripPrefix, String incomingPath) {
+    private String stripPrefixKeepingALeadingSlashAtLeast(int n, String incomingPath) {
         String result =  Arrays.stream(incomingPath.split("/"))
                      .filter(s -> !s.isEmpty())
-                     .skip(stripPrefix)
+                     .skip(n)
                      .reduce("",
                              (part1, part2) -> part1 + "/" + part2);
 
-        if (result.equals("")) {
+        if (result.isEmpty()) {
             result = "/";
         }
         return result;
