@@ -1,13 +1,12 @@
 package com.dnastack.gatekeeper;
 
-import com.dnastack.gatekeeper.config.InboundEmailWhitelistConfiguration;
-import com.dnastack.gatekeeper.config.InboundKeyConfiguration;
+import com.dnastack.gatekeeper.config.InboundConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties({InboundKeyConfiguration.class, InboundEmailWhitelistConfiguration.class})
+@EnableConfigurationProperties({InboundConfiguration.class})
 public class GatekeeperApp {
 
     public static void main(String[] args) {

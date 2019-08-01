@@ -1,6 +1,5 @@
 package com.dnastack.gatekeeper.auth;
 
-import com.dnastack.gatekeeper.config.InboundEmailWhitelistConfiguration;
 import com.dnastack.gatekeeper.routing.GatekeeperGatewayFilterFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -17,7 +16,7 @@ import static java.lang.String.format;
  */
 public class TokenAuthorizerFactory {
 
-    public ITokenAuthorizer getTokenAuthorizer(GatekeeperGatewayFilterFactory.Config config, String tokenAuthorizationMethod, List<String> requiredScopeList, InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
+    public ITokenAuthorizer getTokenAuthorizer(GatekeeperGatewayFilterFactory.Config config, String tokenAuthorizationMethod, List<String> requiredScopeList, List<String> emailWhitelist, ObjectMapper objectMapper) {
         if (tokenAuthorizationMethod.equals("email")) {
             return new TokenAuthorizerEmailImpl(emailWhitelist, objectMapper);
         } else if (tokenAuthorizationMethod.equals("scope")) {

@@ -75,20 +75,21 @@ outbound:
     password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
 inbound:
   jwt:
-    algorithm: RS256
-    # This is the development public key corresponding to the development private key in wallet.
-    # See README for private key
-    # This key is NOT used in any deployments. It is only meant for quick developer startup.
-    public-key: |
-      -----BEGIN PUBLIC KEY-----
-      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxRvdt2Mrt1ZjX4KCSdFH
-      NMEuENtrZzXv8Tkd0q572PGPHPx3xnkj5qNA8BZzWsb1s+MTtyW7WGuQ0V9iipBj
-      utA6X8wyGoNIEZtkWM2Xp61YMq3nNetHoW4GR7S7ILirMVO0coBHrRnsKFKMKf3Z
-      jL0s8xuy1EsTMmYBb3jdMqZxOpGgyQB4t2rUfYbHkspDQqEK6qWxNkHsX8YbQucx
-      qhu2ud2QWPczG3t11jdMWSF//yApyfOUn7X9fkhMxGMDQrvZ7W3BKOKZ6jYcm3vM
-      40X5kGJHax0ZU2KeaVAl8qrJSE7cOiv6TxnIcBJ00isVdLggzz72xK5R9R1e9MEO
-      DQIDAQAB
-      -----END PUBLIC KEY-----
+    - issuer: http://localhost:8081
+      algorithm: RS256
+      # This is the development public key corresponding to the development private key in wallet.
+      # See README for private key
+      # This key is NOT used in any deployments. It is only meant for quick developer startup.
+      public-key: |
+        -----BEGIN PUBLIC KEY-----
+        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxRvdt2Mrt1ZjX4KCSdFH
+        NMEuENtrZzXv8Tkd0q572PGPHPx3xnkj5qNA8BZzWsb1s+MTtyW7WGuQ0V9iipBj
+        utA6X8wyGoNIEZtkWM2Xp61YMq3nNetHoW4GR7S7ILirMVO0coBHrRnsKFKMKf3Z
+        jL0s8xuy1EsTMmYBb3jdMqZxOpGgyQB4t2rUfYbHkspDQqEK6qWxNkHsX8YbQucx
+        qhu2ud2QWPczG3t11jdMWSF//yApyfOUn7X9fkhMxGMDQrvZ7W3BKOKZ6jYcm3vM
+        40X5kGJHax0ZU2KeaVAl8qrJSE7cOiv6TxnIcBJ00isVdLggzz72xK5R9R1e9MEO
+        DQIDAQAB
+        -----END PUBLIC KEY-----
   # FIXME obviously we need to extract this to a database
   # NOTE For the time being, please put the list of whitelisted email addresses here.
   emailWhitelist:

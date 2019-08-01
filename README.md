@@ -148,7 +148,8 @@ curl --request GET \
 For a non-default configuration (a deployment or a local-to-cloud integration scenario), these are the
 environment variables that you may want to set:
 
-* `INBOUND_JWT_PUBLIC_KEY` - the PEM-formatted public key of the Wallet server this Gatekeeper will trust
+* `INBOUND_JWT_0_ISSUER` - the issuer url associated with the public key signing inbound JWTs
+* `INBOUND_JWT_0_PUBLIC_KEY` - the PEM-formatted public key of the Wallet server this Gatekeeper will trust
 * `GATEKEEPER_BEACONSERVER_URL` - the URL of the beacon server being protected (proxied)
 * see [application.yml](src/main/resources/application.yml) for more
 

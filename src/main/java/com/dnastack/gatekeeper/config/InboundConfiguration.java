@@ -7,6 +7,14 @@ import java.util.List;
 
 @Data
 @ConfigurationProperties("inbound")
-public class InboundEmailWhitelistConfiguration {
+public class InboundConfiguration {
+    @Data
+    public static class IssuerConfig {
+        private String issuer;
+        private String algorithm;
+        private String publicKey;
+    }
+
+    private List<IssuerConfig> jwt;
     private List<String> emailWhitelist;
 }

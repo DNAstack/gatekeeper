@@ -1,7 +1,6 @@
 package com.dnastack.gatekeeper.auth;
 
 import com.dnastack.gatekeeper.config.Account;
-import com.dnastack.gatekeeper.config.InboundEmailWhitelistConfiguration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -20,10 +19,10 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
 
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
-    private InboundEmailWhitelistConfiguration emailWhitelist;
+    private List<String> emailWhitelist;
     private ObjectMapper objectMapper;
 
-    public TokenAuthorizerEmailImpl(InboundEmailWhitelistConfiguration emailWhitelist, ObjectMapper objectMapper) {
+    public TokenAuthorizerEmailImpl(List<String> emailWhitelist, ObjectMapper objectMapper) {
         this.emailWhitelist = emailWhitelist;
         this.objectMapper = objectMapper;
     }
@@ -50,7 +49,7 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
     }
 
     private boolean isWhitelisted(String email) {
-        return emailWhitelist.getEmailWhitelist().contains(email);
+        return emailWhitelist.contains(email);
     }
 
     private Stream<String> accountEmail(Account account) {

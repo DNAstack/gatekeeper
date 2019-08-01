@@ -1,6 +1,7 @@
 package com.dnastack.gatekeeper.auth;
 
 import com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.config.JwtConfiguration;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import static java.lang.String.format;
 public class Gatekeeper {
 
     @Autowired
-    private JwtParser jwtParser;
+    private JwtConfiguration.ParserProvider parserProvider;
 
     // Can't default to empty list when we specify value in application.yml
     @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
@@ -25,6 +26,9 @@ public class Gatekeeper {
 
     @Autowired
     private ITokenAuthorizer tokenAuthorizer;
+
+    @Autowired
+    private UnsafeBodyParser bodyParser;
 
     public ITokenAuthorizer.AuthorizationDecision determineAccessGrant(String authToken) {
         if (authToken == null) {
@@ -56,6 +60,9 @@ public class Gatekeeper {
     }
 
     private Jws<Claims> parseAndValidateJws(String authToken) {
+        final String issuer = bodyParser.extractIssuerWithoutValidation(authToken);
+        final JwtParser jwtParser = parserProvider.apply(issuer)
+                                                  .orElseThrow(() -> new JwtException(format("Unrecognized issuer [%s]", issuer)));
         final Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
         if (acceptedAudiences.isEmpty()) {
             log.debug("Not validating token audience, because no audiences are configured.");

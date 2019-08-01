@@ -13,26 +13,52 @@ import org.springframework.context.annotation.Configuration;
 
 import java.security.PublicKey;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
 @Configuration
 public class JwtConfiguration {
 
+    /**
+     * A function mapping issuers to JwtParsers configured to validate signatures from that issuer.
+     */
+    @FunctionalInterface
+    public interface ParserProvider extends Function<String, Optional<JwtParser>> {
+        /**
+         * @param issuer An issuer url. Never null.
+         * @return A JwtParser configured for the given issuer.
+         */
+        @Override
+        Optional<JwtParser> apply(String issuer);
+    }
+
     @Autowired
-    private InboundKeyConfiguration keyConfiguration;
+    private InboundConfiguration inboundConfiguration;
 
     @Autowired
     private ObjectMapper objectMapper;
 
     @Bean
-    public JwtParser jwtParser() {
+    public ParserProvider jwtParser() {
+        final Map<String, InboundConfiguration.IssuerConfig> configsByIssuer =
+                inboundConfiguration.getJwt()
+                                    .stream()
+                                    .collect(Collectors.toMap(InboundConfiguration.IssuerConfig::getIssuer,
+                                                              Function.identity()));
+        return issuer -> Optional.ofNullable(configsByIssuer.get(issuer))
+                                 .map(this::createParser);
+    }
 
-        if (keyConfiguration.getAlgorithm().toLowerCase().startsWith("rs")) {
-            final PublicKey publicKey = RsaKeyHelper.parsePublicKey(keyConfiguration.getPublicKey());
+    private JwtParser createParser(InboundConfiguration.IssuerConfig issuerConfig) {
+        if (issuerConfig.getAlgorithm().toLowerCase().startsWith("rs")) {
+            final PublicKey publicKey = RsaKeyHelper.parsePublicKey(issuerConfig.getPublicKey());
             return Jwts.parser().setSigningKey(publicKey);
         } else {
-            return Jwts.parser().setSigningKey(keyConfiguration.getPublicKey());
+            return Jwts.parser().setSigningKey(issuerConfig.getPublicKey());
         }
     }
 
@@ -42,13 +68,10 @@ public class JwtConfiguration {
     @Value("${gatekeeper.required.scope}")
     private List<String> requiredScopeList;
 
-    @Autowired
-    private InboundEmailWhitelistConfiguration emailWhitelist;
-
     @Bean
     public ITokenAuthorizer createTokenAuthorizer() {
         if (tokenAuthorizationMethod.equals("email")) {
-            return new TokenAuthorizerEmailImpl(emailWhitelist, objectMapper);
+            return new TokenAuthorizerEmailImpl(inboundConfiguration.getEmailWhitelist(), objectMapper);
         } else if (tokenAuthorizationMethod.equals("scope")) {
             return new TokenAuthorizerScopeImpl(requiredScopeList);
         } else {
