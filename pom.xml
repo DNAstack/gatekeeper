@@ -18,7 +18,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
         <spring-cloud.version>Greenwich.RC1</spring-cloud.version>
     </properties>
 
@@ -129,6 +129,65 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>resolve-dependencies</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>de.qaware.maven</groupId>
+                        <artifactId>go-offline-maven-plugin</artifactId>
+                        <version>1.1.0</version>
+                        <configuration>
+                            <downloadSources>false</downloadSources>
+                            <downloadJavadoc>false</downloadJavadoc>
+                            <dynamicDependencies>
+                                <DynamicDependency>
+                                    <groupId>org.apache.maven.surefire</groupId>
+                                    <artifactId>surefire-junit4</artifactId>
+                                    <version>2.22.1</version>
+                                    <repositoryType>PLUGIN</repositoryType>
+                                </DynamicDependency>
+                                <DynamicDependency>
+                                    <groupId>org.apache.maven</groupId>
+                                    <artifactId>maven-plugin-api</artifactId>
+                                    <version>2.0.6</version>
+                                    <repositoryType>PLUGIN</repositoryType>
+                                </DynamicDependency>
+                                <DynamicDependency>
+                                    <groupId>org.apache.maven</groupId>
+                                    <artifactId>maven-project</artifactId>
+                                    <version>2.0.6</version>
+                                    <repositoryType>PLUGIN</repositoryType>
+                                </DynamicDependency>
+                                <DynamicDependency>
+                                    <groupId>org.apache.maven.shared</groupId>
+                                    <artifactId>maven-filtering</artifactId>
+                                    <version>1.0-beta-4</version>
+                                    <repositoryType>PLUGIN</repositoryType>
+                                </DynamicDependency>
+                                <DynamicDependency>
+                                    <groupId>org.codehaus.plexus</groupId>
+                                    <artifactId>plexus-interpolation</artifactId>
+                                    <version>1.13</version>
+                                    <repositoryType>PLUGIN</repositoryType>
+                                </DynamicDependency>
+                            </dynamicDependencies>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>initialize</phase>
+                                <goals>
+                                    <goal>resolve-dependencies</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <repositories>
         <repository>
