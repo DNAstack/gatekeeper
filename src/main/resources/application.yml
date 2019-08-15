@@ -61,7 +61,11 @@ gatekeeper:
     scope: openid
   token:
     authorization:
-      method: email
+      method: email-authorizer
+      args:
+        # FIXME obviously we need to extract this to a database
+        # NOTE For the time being, please put the list of whitelisted email addresses here.
+        whitelist: "roasted@coffee.bean, max@dnastack.com"
 
 logging:
   level:
@@ -90,7 +94,3 @@ inbound:
         40X5kGJHax0ZU2KeaVAl8qrJSE7cOiv6TxnIcBJ00isVdLggzz72xK5R9R1e9MEO
         DQIDAQAB
         -----END PUBLIC KEY-----
-  # FIXME obviously we need to extract this to a database
-  # NOTE For the time being, please put the list of whitelisted email addresses here.
-  emailWhitelist:
-    - roasted@coffee.bean # example

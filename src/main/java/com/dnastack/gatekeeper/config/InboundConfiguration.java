@@ -16,5 +16,4 @@ public class InboundConfiguration {
     }
 
     private List<IssuerConfig> jwt;
-    private List<String> emailWhitelist;
 }

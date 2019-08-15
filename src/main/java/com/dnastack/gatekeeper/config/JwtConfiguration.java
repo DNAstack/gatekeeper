@@ -1,24 +1,20 @@
 package com.dnastack.gatekeeper.config;
 
 import com.dnastack.gatekeeper.auth.ITokenAuthorizer;
-import com.dnastack.gatekeeper.auth.TokenAuthorizerEmailImpl;
-import com.dnastack.gatekeeper.auth.TokenAuthorizerScopeImpl;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.dnastack.gatekeeper.auth.TokenAuthorizerFactory;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.security.PublicKey;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static java.lang.String.format;
 
 @Configuration
 public class JwtConfiguration {
@@ -40,7 +36,7 @@ public class JwtConfiguration {
     private InboundConfiguration inboundConfiguration;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private BeanFactory beanFactory;
 
     @Bean
     public ParserProvider jwtParser() {
@@ -62,22 +58,13 @@ public class JwtConfiguration {
         }
     }
 
-    @Value("${gatekeeper.token.authorization.method}")
-    private String tokenAuthorizationMethod;
-
-    @Value("${gatekeeper.required.scope}")
-    private List<String> requiredScopeList;
+    @Autowired
+    private TokenAuthorizationConfig config;
 
     @Bean
-    public ITokenAuthorizer createTokenAuthorizer() {
-        if (tokenAuthorizationMethod.equals("email")) {
-            return new TokenAuthorizerEmailImpl(inboundConfiguration.getEmailWhitelist(), objectMapper);
-        } else if (tokenAuthorizationMethod.equals("scope")) {
-            return new TokenAuthorizerScopeImpl(requiredScopeList);
-        } else {
-            throw new IllegalArgumentException(format("No suitable token authorizer found for method [%s].",
-                                                      tokenAuthorizationMethod));
-        }
+    public ITokenAuthorizer createTokenAuthorizer() throws BeansException {
+        final TokenAuthorizerFactory<?> factory = beanFactory.getBean(config.getMethod(), TokenAuthorizerFactory.class);
+        return factory.create(config.getArgs());
     }
 
 }

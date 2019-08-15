@@ -5,15 +5,21 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.toList;
 
 @Slf4j
 public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
 
-    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<Account>>() {
+    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<>() {
 
     };
 
@@ -67,5 +73,38 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
         return accounts.stream()
                 .filter(this::issuedByGoogle)
                 .flatMap(this::accountEmail);
+    }
+
+    @Component("email-authorizer")
+    public static class EmailTokenAuthorizerFactory extends TokenAuthorizerFactory<EmailTokenAuthorizerFactory.Config> {
+
+        @Autowired
+        public EmailTokenAuthorizerFactory(ObjectMapper objectMapper) {
+            super(objectMapper);
+        }
+
+        @Override
+        protected TypeReference<Config> getConfigType() {
+            return new TypeReference<>() { };
+        }
+
+        @Override
+        protected ITokenAuthorizer create(Config config) {
+            return new TokenAuthorizerEmailImpl(config.whitelistItems(), objectMapper);
+        }
+
+        @Data
+        public static class Config {
+            /*
+             A CSV of emails
+             Can't use a list here because depending on how the value is specified, spring config parses it differently
+             and Jackson mapping fails.
+             */
+            private String whitelist;
+
+            public List<String> whitelistItems() {
+                return Arrays.stream(whitelist.split("\\s*,\\s*")).collect(toList());
+            }
+        }
     }
 }

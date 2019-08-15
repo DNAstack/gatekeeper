@@ -1,12 +1,20 @@
 package com.dnastack.gatekeeper.auth;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import static java.util.stream.Collectors.toList;
 
 @Slf4j
 public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
@@ -41,6 +49,39 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
                                         .grant(AccessGrant.REGISTERED)
                                         .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
                                         .build();
+        }
+    }
+
+    @Component("scope-authorizer")
+    public static class ScopeTokenAuthorizerFactory extends TokenAuthorizerFactory<ScopeTokenAuthorizerFactory.Config> {
+
+        @Autowired
+        public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {
+            super(objectMapper);
+        }
+
+        @Override
+        protected TypeReference<Config> getConfigType() {
+            return new TypeReference<>() { };
+        }
+
+        @Override
+        protected ITokenAuthorizer create(Config config) {
+            return new TokenAuthorizerScopeImpl(config.scopeList());
+        }
+
+        @Data
+        public static class Config {
+            /*
+             A CSV of scopes
+             Can't use a list here because depending on how the value is specified, spring config parses it differently
+             and Jackson mapping fails.
+             */
+            private String scopes;
+
+            public List<String> scopeList() {
+                return Arrays.stream(scopes.split("\\s*,\\s*")).collect(toList());
+            }
         }
     }
 }

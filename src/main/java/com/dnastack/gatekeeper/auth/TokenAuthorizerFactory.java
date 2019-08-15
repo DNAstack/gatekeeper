@@ -1,28 +1,56 @@
 package com.dnastack.gatekeeper.auth;
 
-import com.dnastack.gatekeeper.routing.GatekeeperGatewayFilterFactory;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
+import java.util.Map;
 
 import static java.lang.String.format;
 
 /**
- * Sometimes we want to use the email field in the decrypted auth token to authenticate the claims of the incoming user,
- * other times we want to authenticate using the "scope" field in the decrypted auth token.
- *
- * So we have a factory class which can give you the right token authorizer implementation depending on whether you're
- * auth'ing with email or scope.
+ * @param <T> Config type.
  */
-public class TokenAuthorizerFactory {
+@Slf4j
+public abstract class TokenAuthorizerFactory<T> {
 
-    public ITokenAuthorizer getTokenAuthorizer(GatekeeperGatewayFilterFactory.Config config, String tokenAuthorizationMethod, List<String> requiredScopeList, List<String> emailWhitelist, ObjectMapper objectMapper) {
-        if (tokenAuthorizationMethod.equals("email")) {
-            return new TokenAuthorizerEmailImpl(emailWhitelist, objectMapper);
-        } else if (tokenAuthorizationMethod.equals("scope")) {
-            return new TokenAuthorizerScopeImpl(requiredScopeList);
-        } else {
-            throw new IllegalArgumentException(format("No suitable token authorizer found for method [%s].", tokenAuthorizationMethod));
+    public static class ConfigException extends RuntimeException {
+        public ConfigException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
+
+    protected final ObjectMapper objectMapper;
+
+    protected TokenAuthorizerFactory(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    /**
+     * @return The type of this config, used for deserializing.
+     */
+    protected abstract TypeReference<T> getConfigType();
+
+    /**
+     * @param config The deserialized config (args section of token authorizer config).
+     * @return A fully configured token enhancer.
+     */
+    protected abstract ITokenAuthorizer create(T config);
+
+    /**
+     * @param config The config, parsed as map. Will be converted to a specific config type for this factory via Jackson.
+     * @return A fully configured token enhancer.
+     */
+    public ITokenAuthorizer create(Map<String, ?> config) {
+        T convertedConfig;
+        try {
+            convertedConfig = objectMapper.convertValue(config, getConfigType());
+        } catch (RuntimeException e) {
+            throw new ConfigException(format("Unable to parse into type [%s] from value [%s]", getConfigType().getType(), config), e);
+        }
+
+        log.info("Creating token enhancer from config [{}]", config);
+        return create(convertedConfig);
+    }
+
 }
