@@ -17,11 +17,11 @@ import java.util.Set;
 import static java.util.stream.Collectors.toList;
 
 @Slf4j
-public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
+public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
     private List<String> requiredScopeList;
 
-    public TokenAuthorizerScopeImpl(List<String> requiredScopeList) {
+    public ScopeTokenAuthorizer(List<String> requiredScopeList) {
         this.requiredScopeList = requiredScopeList;
     }
 
@@ -66,8 +66,8 @@ public class TokenAuthorizerScopeImpl implements ITokenAuthorizer {
         }
 
         @Override
-        protected ITokenAuthorizer create(Config config) {
-            return new TokenAuthorizerScopeImpl(config.scopeList());
+        protected TokenAuthorizer create(Config config) {
+            return new ScopeTokenAuthorizer(config.scopeList());
         }
 
         @Data

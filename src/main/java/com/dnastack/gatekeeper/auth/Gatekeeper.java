@@ -1,6 +1,6 @@
 package com.dnastack.gatekeeper.auth;
 
-import com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions;
 import com.dnastack.gatekeeper.config.JwtConfiguration;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
@@ -25,18 +25,18 @@ public class Gatekeeper {
     private List<String> acceptedAudiences;
 
     @Autowired
-    private ITokenAuthorizer tokenAuthorizer;
+    private TokenAuthorizer tokenAuthorizer;
 
     @Autowired
     private UnsafeBodyParser bodyParser;
 
-    public ITokenAuthorizer.AuthorizationDecision determineAccessGrant(String authToken) {
+    public TokenAuthorizer.AuthorizationDecision determineAccessGrant(String authToken) {
         if (authToken == null) {
             log.debug("No auth found. Sending auth challenge.");
-            return ITokenAuthorizer.AuthorizationDecision.builder()
-                                                         .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
-                                                         .decisionInfo(StandardDecisions.REQUIRES_CREDENTIALS)
-                                                         .build();
+            return TokenAuthorizer.AuthorizationDecision.builder()
+                                                        .grant(TokenAuthorizer.AccessGrant.PUBLIC)
+                                                        .decisionInfo(StandardDecisions.REQUIRES_CREDENTIALS)
+                                                        .build();
         }
 
         try {
@@ -45,17 +45,17 @@ public class Gatekeeper {
             return tokenAuthorizer.authorizeToken(jws);
         } catch (ExpiredJwtException ex) {
             log.error("Caught expired exception");
-            return ITokenAuthorizer.AuthorizationDecision.builder()
-                                                         .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
-                                                         .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
-                                                         .build();
+            return TokenAuthorizer.AuthorizationDecision.builder()
+                                                        .grant(TokenAuthorizer.AccessGrant.PUBLIC)
+                                                        .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
+                                                        .build();
         } catch (JwtException | IllegalArgumentException ex) {
             // An IAE exception is thrown when we are using the HS algorithm but the token is signed with RSA
-            return ITokenAuthorizer.AuthorizationDecision.builder()
-                                                         .grant(ITokenAuthorizer.AccessGrant.PUBLIC)
-                                                         .decisionInfo(StandardDecisions.MALFORMED_CREDENTIALS)
-                                                         .decisionInfo(new ITokenAuthorizer.CustomDecisionInfo("Invalid token: " + ex))
-                                                         .build();
+            return TokenAuthorizer.AuthorizationDecision.builder()
+                                                        .grant(TokenAuthorizer.AccessGrant.PUBLIC)
+                                                        .decisionInfo(StandardDecisions.MALFORMED_CREDENTIALS)
+                                                        .decisionInfo(new TokenAuthorizer.CustomDecisionInfo("Invalid token: " + ex))
+                                                        .build();
         }
     }
 

@@ -9,7 +9,7 @@ import java.util.Map;
 import static java.lang.String.format;
 
 /**
- * @param <T> Config type.
+ * @param <T> GrantConfig type.
  */
 @Slf4j
 public abstract class TokenAuthorizerFactory<T> {
@@ -35,13 +35,13 @@ public abstract class TokenAuthorizerFactory<T> {
      * @param config The deserialized config (args section of token authorizer config).
      * @return A fully configured token enhancer.
      */
-    protected abstract ITokenAuthorizer create(T config);
+    protected abstract TokenAuthorizer create(T config);
 
     /**
      * @param config The config, parsed as map. Will be converted to a specific config type for this factory via Jackson.
      * @return A fully configured token enhancer.
      */
-    public ITokenAuthorizer create(Map<String, ?> config) {
+    public TokenAuthorizer create(Map<String, ?> config) {
         T convertedConfig;
         try {
             convertedConfig = objectMapper.convertValue(config, getConfigType());
