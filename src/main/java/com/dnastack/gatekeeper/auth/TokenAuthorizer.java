@@ -9,7 +9,7 @@ import lombok.Value;
 
 import java.util.List;
 
-public interface ITokenAuthorizer {
+public interface TokenAuthorizer {
 
     @Builder
     @Value

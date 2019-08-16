@@ -1,8 +1,8 @@
 package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.auth.Gatekeeper;
-import com.dnastack.gatekeeper.auth.ITokenAuthorizer.AuthorizationDecision;
-import com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.auth.TokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,7 +1,7 @@
 package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.auth.Gatekeeper;
-import com.dnastack.gatekeeper.auth.ITokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.auth.TokenAuthorizer.AuthorizationDecision;
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -28,8 +28,8 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Optional;
 
-import static com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS;
-import static com.dnastack.gatekeeper.auth.ITokenAuthorizer.StandardDecisions.MALFORMED_CREDENTIALS;
+import static com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS;
+import static com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions.MALFORMED_CREDENTIALS;
 import static com.dnastack.gatekeeper.header.XForwardUtil.getExternalPath;
 import static java.lang.String.format;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;

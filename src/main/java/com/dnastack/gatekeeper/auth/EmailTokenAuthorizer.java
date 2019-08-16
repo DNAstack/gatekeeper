@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toList;
 
 @Slf4j
-public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
+public class EmailTokenAuthorizer implements TokenAuthorizer {
 
     public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<>() {
 
@@ -28,7 +28,7 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
     private List<String> emailWhitelist;
     private ObjectMapper objectMapper;
 
-    public TokenAuthorizerEmailImpl(List<String> emailWhitelist, ObjectMapper objectMapper) {
+    public EmailTokenAuthorizer(List<String> emailWhitelist, ObjectMapper objectMapper) {
         this.emailWhitelist = emailWhitelist;
         this.objectMapper = objectMapper;
     }
@@ -89,8 +89,8 @@ public class TokenAuthorizerEmailImpl implements ITokenAuthorizer {
         }
 
         @Override
-        protected ITokenAuthorizer create(Config config) {
-            return new TokenAuthorizerEmailImpl(config.whitelistItems(), objectMapper);
+        protected TokenAuthorizer create(Config config) {
+            return new EmailTokenAuthorizer(config.whitelistItems(), objectMapper);
         }
 
         @Data

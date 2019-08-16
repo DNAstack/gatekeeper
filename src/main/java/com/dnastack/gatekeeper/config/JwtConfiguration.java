@@ -1,6 +1,6 @@
 package com.dnastack.gatekeeper.config;
 
-import com.dnastack.gatekeeper.auth.ITokenAuthorizer;
+import com.dnastack.gatekeeper.auth.TokenAuthorizer;
 import com.dnastack.gatekeeper.auth.TokenAuthorizerFactory;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
@@ -38,6 +38,9 @@ public class JwtConfiguration {
     @Autowired
     private BeanFactory beanFactory;
 
+    @Autowired
+    private TokenAuthorizationConfig config;
+
     @Bean
     public ParserProvider jwtParser() {
         final Map<String, InboundConfiguration.IssuerConfig> configsByIssuer =
@@ -58,11 +61,8 @@ public class JwtConfiguration {
         }
     }
 
-    @Autowired
-    private TokenAuthorizationConfig config;
-
     @Bean
-    public ITokenAuthorizer createTokenAuthorizer() throws BeansException {
+    public TokenAuthorizer createTokenAuthorizer() throws BeansException {
         final TokenAuthorizerFactory<?> factory = beanFactory.getBean(config.getMethod(), TokenAuthorizerFactory.class);
         return factory.create(config.getArgs());
     }
