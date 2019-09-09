@@ -170,6 +170,6 @@ class RsaKeyHelper {
     }
 
     private static String removeNewLines(String pemString) {
-        return pemString == null ? null : pemString.trim().replaceAll("\\\\\\\\n", "");
+        return pemString == null ? null : pemString.trim().replaceAll("(\\\\n|\\\\\\\\n)", "");
     }
 }
