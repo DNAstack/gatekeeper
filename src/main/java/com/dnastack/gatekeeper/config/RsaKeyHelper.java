@@ -12,153 +12,164 @@
  */
 package com.dnastack.gatekeeper.config;
 
-import org.bouncycastle.asn1.ASN1Sequence;
+import static org.springframework.security.jwt.codec.Codecs.b64Decode;
+import static org.springframework.security.jwt.codec.Codecs.utf8Encode;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.*;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.*;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
+import java.security.spec.RSAPrivateCrtKeySpec;
+import java.security.spec.RSAPublicKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.springframework.security.jwt.codec.Codecs.b64Decode;
-import static org.springframework.security.jwt.codec.Codecs.utf8Encode;
+import org.bouncycastle.asn1.ASN1Sequence;
 
 /**
- * Reads RSA key pairs using BC provider classes but without the
- * need to specify a crypto provider or have BC added as one.
+ * Reads RSA key pairs using BC provider classes but without the need to specify a crypto provider or have BC added as
+ * one.
  *
  * @author Luke Taylor
  */
 class RsaKeyHelper {
-	private static String BEGIN = "-----BEGIN";
-	private static Pattern PEM_DATA = Pattern.compile("-----BEGIN (.*)-----(.*)-----END (.*)-----", Pattern.DOTALL);
 
-	static KeyPair parseKeyPair(String pemData) {
-		Matcher m = PEM_DATA.matcher(pemData.trim());
+    private static String BEGIN = "-----BEGIN";
+    private static Pattern PEM_DATA = Pattern.compile("-----BEGIN (.*)-----(.*)-----END (.*)-----", Pattern.DOTALL);
 
-		if (!m.matches()) {
-			throw new IllegalArgumentException("String is not PEM encoded data");
-		}
+    static KeyPair parseKeyPair(String pemData) {
+        Matcher m = PEM_DATA.matcher(removeNewLines(pemData));
 
-		String type = m.group(1);
-		final byte[] content = b64Decode(utf8Encode(m.group(2)));
+        if (!m.matches()) {
+            throw new IllegalArgumentException("String is not PEM encoded data");
+        }
 
-		PublicKey publicKey;
-		PrivateKey privateKey = null;
+        String type = m.group(1);
+        final byte[] content = b64Decode(utf8Encode(m.group(2)));
 
-		try {
-			KeyFactory fact = KeyFactory.getInstance("RSA");
-			if (type.equals("RSA PRIVATE KEY")) {
-				ASN1Sequence seq = ASN1Sequence.getInstance(content);
-				if (seq.size() != 9) {
-					throw new IllegalArgumentException("Invalid RSA Private Key ASN1 sequence.");
-				}
-				org.bouncycastle.asn1.pkcs.RSAPrivateKey key = org.bouncycastle.asn1.pkcs.RSAPrivateKey.getInstance(seq);
-				RSAPublicKeySpec pubSpec = new RSAPublicKeySpec(key.getModulus(), key.getPublicExponent());
-				RSAPrivateCrtKeySpec privSpec = new RSAPrivateCrtKeySpec(key.getModulus(), key.getPublicExponent(),
-					key.getPrivateExponent(), key.getPrime1(), key.getPrime2(), key.getExponent1(), key.getExponent2(),
-					key.getCoefficient());
-				publicKey = fact.generatePublic(pubSpec);
-				privateKey = fact.generatePrivate(privSpec);
-			} else if (type.equals("PUBLIC KEY")) {
-				KeySpec keySpec = new X509EncodedKeySpec(content);
-				publicKey = fact.generatePublic(keySpec);
-			} else if (type.equals("RSA PUBLIC KEY")) {
-				ASN1Sequence seq = ASN1Sequence.getInstance(content);
-				org.bouncycastle.asn1.pkcs.RSAPublicKey key = org.bouncycastle.asn1.pkcs.RSAPublicKey.getInstance(seq);
-				RSAPublicKeySpec pubSpec = new RSAPublicKeySpec(key.getModulus(), key.getPublicExponent());
-				publicKey = fact.generatePublic(pubSpec);
-			} else {
-				throw new IllegalArgumentException(type + " is not a supported format");
-			}
+        PublicKey publicKey;
+        PrivateKey privateKey = null;
 
-			return new KeyPair(publicKey, privateKey);
-		}
-		catch (InvalidKeySpecException e) {
-			throw new RuntimeException(e);
-		}
-		catch (NoSuchAlgorithmException e) {
-			throw new IllegalStateException(e);
-		}
-	}
+        try {
+            KeyFactory fact = KeyFactory.getInstance("RSA");
+            if (type.equals("RSA PRIVATE KEY")) {
+                ASN1Sequence seq = ASN1Sequence.getInstance(content);
+                if (seq.size() != 9) {
+                    throw new IllegalArgumentException("Invalid RSA Private Key ASN1 sequence.");
+                }
+                org.bouncycastle.asn1.pkcs.RSAPrivateKey key = org.bouncycastle.asn1.pkcs.RSAPrivateKey
+                    .getInstance(seq);
+                RSAPublicKeySpec pubSpec = new RSAPublicKeySpec(key.getModulus(), key.getPublicExponent());
+                RSAPrivateCrtKeySpec privSpec = new RSAPrivateCrtKeySpec(key.getModulus(), key.getPublicExponent(),
+                    key.getPrivateExponent(), key.getPrime1(), key.getPrime2(), key.getExponent1(), key.getExponent2(),
+                    key.getCoefficient());
+                publicKey = fact.generatePublic(pubSpec);
+                privateKey = fact.generatePrivate(privSpec);
+            } else if (type.equals("PUBLIC KEY")) {
+                KeySpec keySpec = new X509EncodedKeySpec(content);
+                publicKey = fact.generatePublic(keySpec);
+            } else if (type.equals("RSA PUBLIC KEY")) {
+                ASN1Sequence seq = ASN1Sequence.getInstance(content);
+                org.bouncycastle.asn1.pkcs.RSAPublicKey key = org.bouncycastle.asn1.pkcs.RSAPublicKey.getInstance(seq);
+                RSAPublicKeySpec pubSpec = new RSAPublicKeySpec(key.getModulus(), key.getPublicExponent());
+                publicKey = fact.generatePublic(pubSpec);
+            } else {
+                throw new IllegalArgumentException(type + " is not a supported format");
+            }
 
-	private static final Pattern SSH_PUB_KEY = Pattern.compile("ssh-(rsa|dsa) ([A-Za-z0-9/+]+=*) (.*)");
+            return new KeyPair(publicKey, privateKey);
+        } catch (InvalidKeySpecException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
-	static RSAPublicKey parsePublicKey(String key) {
-		Matcher m = SSH_PUB_KEY.matcher(key);
+    private static final Pattern SSH_PUB_KEY = Pattern.compile("ssh-(rsa|dsa) ([A-Za-z0-9/+]+=*) (.*)");
 
-		if (m.matches()) {
-			String alg = m.group(1);
-			String encKey = m.group(2);
-			//String id = m.group(3);
+    static RSAPublicKey parsePublicKey(String key) {
+        key = removeNewLines(key);
+        Matcher m = SSH_PUB_KEY.matcher(key);
 
-			if (!"rsa".equalsIgnoreCase(alg)) {
-				throw new IllegalArgumentException("Only RSA is currently supported, but algorithm was " + alg);
-			}
+        if (m.matches()) {
+            String alg = m.group(1);
+            String encKey = m.group(2);
+            //String id = m.group(3);
 
-			return parseSSHPublicKey(encKey);
-		} else if (!key.startsWith(BEGIN)) {
-			// Assume it's the plain Base64 encoded ssh key without the "ssh-rsa" at the start
-			return parseSSHPublicKey(key);
-		}
+            if (!"rsa".equalsIgnoreCase(alg)) {
+                throw new IllegalArgumentException("Only RSA is currently supported, but algorithm was " + alg);
+            }
 
-		KeyPair kp = parseKeyPair(key);
+            return parseSSHPublicKey(encKey);
+        } else if (!key.startsWith(BEGIN)) {
+            // Assume it's the plain Base64 encoded ssh key without the "ssh-rsa" at the start
+            return parseSSHPublicKey(key);
+        }
 
-		if (kp.getPublic() == null) {
-			throw new IllegalArgumentException("Key data does not contain a public key");
-		}
+        KeyPair kp = parseKeyPair(key);
 
-		return (RSAPublicKey) kp.getPublic();
-	}
+        if (kp.getPublic() == null) {
+            throw new IllegalArgumentException("Key data does not contain a public key");
+        }
 
-	private static RSAPublicKey parseSSHPublicKey(String encKey) {
-		final byte[] PREFIX = new byte[] {0,0,0,7, 's','s','h','-','r','s','a'};
-		ByteArrayInputStream in = new ByteArrayInputStream(b64Decode(utf8Encode(encKey)));
+        return (RSAPublicKey) kp.getPublic();
+    }
 
-		byte[] prefix = new byte[11];
+    private static RSAPublicKey parseSSHPublicKey(String encKey) {
+        final byte[] PREFIX = new byte[]{0, 0, 0, 7, 's', 's', 'h', '-', 'r', 's', 'a'};
+        ByteArrayInputStream in = new ByteArrayInputStream(b64Decode(utf8Encode(encKey)));
 
-		try {
-			if (in.read(prefix) != 11 || !Arrays.equals(PREFIX, prefix)) {
-				throw new IllegalArgumentException("SSH key prefix not found");
-			}
+        byte[] prefix = new byte[11];
 
-			BigInteger e = new BigInteger(readBigInteger(in));
-			BigInteger n = new BigInteger(readBigInteger(in));
+        try {
+            if (in.read(prefix) != 11 || !Arrays.equals(PREFIX, prefix)) {
+                throw new IllegalArgumentException("SSH key prefix not found");
+            }
 
-			return createPublicKey(n, e);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
+            BigInteger e = new BigInteger(readBigInteger(in));
+            BigInteger n = new BigInteger(readBigInteger(in));
 
-	static RSAPublicKey createPublicKey(BigInteger n, BigInteger e) {
-		try {
-			return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(n, e));
-		}
-		catch (Exception ex) {
-			throw new RuntimeException(ex);
-		}
-	}
+            return createPublicKey(n, e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	private static byte[] readBigInteger(ByteArrayInputStream in) throws IOException {
-		byte[] b = new byte[4];
+    static RSAPublicKey createPublicKey(BigInteger n, BigInteger e) {
+        try {
+            return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(n, e));
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
 
-		if (in.read(b) != 4) {
-			throw new IOException("Expected length data as 4 bytes");
-		}
+    private static byte[] readBigInteger(ByteArrayInputStream in) throws IOException {
+        byte[] b = new byte[4];
 
-		int l = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
+        if (in.read(b) != 4) {
+            throw new IOException("Expected length data as 4 bytes");
+        }
 
-		b = new byte[l];
+        int l = (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
 
-		if (in.read(b) != l) {
-			throw new IOException("Expected " + l + " key bytes");
-		}
+        b = new byte[l];
 
-		return b;
-	}
+        if (in.read(b) != l) {
+            throw new IOException("Expected " + l + " key bytes");
+        }
+
+        return b;
+    }
+
+    private static String removeNewLines(String pemString) {
+        return pemString == null ? null : pemString.trim().replaceAll("\\\\\\\\n", "");
+    }
 }
