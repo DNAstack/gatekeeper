@@ -1,9 +1,5 @@
 # DNAstack Gatekeeper
 
-NOTE: this project is deprecated. We are working on a similar product that we hope to release sometime in 2019. This new product
-will support dynamic updates of backends and access policies.
-Until then, this project is a reference implementation for our current federated auth model.
-
 ## What is it?
 
 Gatekeeper is an HTTP reverse proxy that accepts JWT tokens that were created and signed by
