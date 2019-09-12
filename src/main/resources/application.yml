@@ -6,7 +6,7 @@ spring:
     gateway:
       routes:
         - predicates:
-            - Path=/beacon/**
+            - Path=${gatekeeper.beaconServer.predicate}
           filters:
             - name: Gatekeeper
               args:
@@ -23,7 +23,7 @@ spring:
             - Logging
           uri: ${gatekeeper.beaconServer.url}
         - predicates:
-            - Path=/metadata/**
+            - Path=${gatekeeper.metadataServer.predicate}
           filters:
             - name: Gatekeeper
               args:
@@ -47,6 +47,7 @@ gatekeeper:
     public-prefix: ""
     registered-prefix: ""
     controlled-prefix: "protected"
+    predicate: /metadata/**
     auth-server:
       authorize-url: http://localhost:8081/oauth/authorize
       token-url: http://localhost:8081/oauth/token
@@ -57,6 +58,7 @@ gatekeeper:
     public-prefix: public
     registered-prefix: registered
     controlled-prefix: protected
+    predicate: /beacon/**
   required:
     scope: openid
   token:
