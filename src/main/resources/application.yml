@@ -10,7 +10,7 @@ spring:
           filters:
             - name: Gatekeeper
               args:
-                strip-prefix: 1
+                strip-prefix: ${gatekeeper.beaconServer.strip-prefix}
                 public-prefix: ${gatekeeper.beaconServer.public-prefix}
                 registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
                 controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
@@ -59,6 +59,7 @@ gatekeeper:
     registered-prefix: registered
     controlled-prefix: protected
     predicate: /beacon/**
+    strip-prefix: 1
   required:
     scope: openid
   token:
