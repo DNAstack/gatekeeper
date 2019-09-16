@@ -19,7 +19,7 @@ import static java.util.stream.Collectors.toList;
 @Slf4j
 public class EmailTokenAuthorizer implements TokenAuthorizer {
 
-    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<>() {
+    public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<List<Account>>() {
 
     };
 
@@ -85,7 +85,7 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
 
         @Override
         protected TypeReference<Config> getConfigType() {
-            return new TypeReference<>() { };
+            return new TypeReference<Config>() { };
         }
 
         @Override

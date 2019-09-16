@@ -13,7 +13,7 @@ public interface TokenAuthorizer {
 
     @Builder
     @Value
-    class AuthorizationDecision {
+    public class AuthorizationDecision { //made public for java 8 compatibility
         private AccessGrant grant;
         @Singular
         private List<DecisionInfo> decisionInfos;

@@ -36,8 +36,9 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
         final Ga4ghControlledAccessGrants controlledAccessGrants = objectMapper.convertValue(claims.get("ga4gh"), Ga4ghControlledAccessGrants.class);
         final Stream<Ga4ghClaim> givenControlledAccessGrants = Optional.ofNullable(controlledAccessGrants)
                                                                        .map(Ga4ghControlledAccessGrants::getControlledAccessGrants)
+                                                                       .get() //added for java 8 compatibility
                                                                        .stream()
-                                                                       .flatMap(List::stream)
+                                                                       //.flatMap(List::stream)  //omitted for java 8 compatiblity
                                                                        .filter(Objects::nonNull);
 
         if (givenControlledAccessGrants.anyMatch(this::matches)) {
@@ -89,7 +90,7 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
 
         @Override
         protected TypeReference<Ga4ghControlledAccessGrantTokenAuthorizer.GrantConfig> getConfigType() {
-            return new TypeReference<>() { };
+            return new TypeReference<Ga4ghControlledAccessGrantTokenAuthorizer.GrantConfig>() { };
         }
 
         @Override
