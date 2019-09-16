@@ -62,7 +62,7 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
         @Override
         protected TypeReference<Config> getConfigType() {
-            return new TypeReference<Config>() { };
+            return new TypeReference<>() { };
         }
 
         @Override
