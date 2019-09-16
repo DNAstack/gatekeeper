@@ -20,6 +20,7 @@ spring:
               args:
                 username: ${outbound.basic.username}
                 password: ${outbound.basic.password}
+            - PreserveHostHeader
             - Logging
           uri: ${gatekeeper.beaconServer.url}
         - predicates:
