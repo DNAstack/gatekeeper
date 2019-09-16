@@ -73,6 +73,9 @@ logging:
   level:
     com.dnastack: DEBUG
 
+    # set to DEBUG to log inbound and outbound HTTP headers
+    com.dnastack.gatekeeper.routing.LoggingWebFilter: INFO
+
 outbound:
   # These are the development credentials corresponding to the development credentials in beacon server.
   # These are NOT used in any deployments. They are only meant for quick developer startup.
