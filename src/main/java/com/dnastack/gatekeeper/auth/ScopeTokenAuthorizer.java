@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -33,7 +34,27 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
         //1. Get the list of scopes from authtoken
         //2. Make sure that it contains all the scopes that are there in REQUIRED_SCOPE env variable
 
-        List<String> authTokenScopes = (List<String>) claims.get("scopes");
+        /**
+         * "scope" & "scopes" are both acceptable identifiers for OAuth scopes.
+         * "scope" is the draft standard.
+         * "scopes" is what DAM returns currently.
+         * Hence, we check for both of them.
+         */
+
+        String scope = (String) claims.get("scope");
+        List<String> scopeList = (List<String>) claims.get("scopes");
+        List<String> authTokenScopes;
+
+        if (!StringUtils.isEmpty(scope)) {
+            authTokenScopes =  Arrays.asList(scope.split("\\s+"));
+        } else {
+            if (scopeList != null) {
+                authTokenScopes = scopeList;
+            } else {
+                authTokenScopes = List.of();
+            }
+        }
+
         List<String> requiredScopes = requiredScopeList;
 
         Set<String> authTokenScopesSet = new HashSet<String>(authTokenScopes);
