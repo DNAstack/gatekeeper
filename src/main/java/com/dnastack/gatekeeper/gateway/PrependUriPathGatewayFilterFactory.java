@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.gateway;
 
 import lombok.Data;
 import org.springframework.cloud.gateway.filter.GatewayFilter;

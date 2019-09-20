@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.acl;
 
 import lombok.Getter;
 

@@ -1,6 +1,7 @@
-package com.dnastack.gatekeeper.auth;
+package com.dnastack.gatekeeper.acl;
 
-import com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions;
 import com.dnastack.gatekeeper.config.JwtConfiguration;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;

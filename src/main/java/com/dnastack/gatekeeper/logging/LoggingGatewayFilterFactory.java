@@ -15,7 +15,7 @@
  *
  */
 
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.logging;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;

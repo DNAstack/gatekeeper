@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.auth;
+package com.dnastack.gatekeeper.authorizer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

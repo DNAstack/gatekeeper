@@ -1,8 +1,11 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.acl;
 
-import com.dnastack.gatekeeper.auth.Gatekeeper;
-import com.dnastack.gatekeeper.auth.TokenAuthorizer.AuthorizationDecision;
-import com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.challenge.LoginRedirectAuthenticationChallengeHandler;
+import com.dnastack.gatekeeper.challenge.NonInteractiveAuthenticationChallengeHandler;
+import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
+import com.dnastack.gatekeeper.util.WebFluxUtil;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,7 +103,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         try {
             foundAuthToken = extractAuthToken(request);
         } catch (UnroutableRequestException e) {
-            return WebFluxUtils.rewriteResponse(response, e.getStatus(), e.getMessage());
+            return WebFluxUtil.rewriteResponse(response, e.getStatus(), e.getMessage());
         }
 
         final AuthorizationDecision authorizationDecision = gatekeeper.determineAccessGrant(foundAuthToken.orElse(null));
@@ -180,8 +183,8 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
 
     private Mono<Void> noContentForbidden(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
         log.debug("Prefix is empty. Sending 403 auth challenge.");
-        return WebFluxUtils.rewriteResponse(response, 403,
-                                            format("%s requests not accepted.",
+        return WebFluxUtil.rewriteResponse(response, 403,
+                                           format("%s requests not accepted.",
                                                    authorizationDecision.getGrant().toString()));
 
     }

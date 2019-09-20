@@ -1,7 +1,7 @@
 package com.dnastack.gatekeeper.routing;
 
-import com.dnastack.gatekeeper.auth.Gatekeeper;
-import com.dnastack.gatekeeper.auth.TokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.acl.Gatekeeper;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.AuthorizationDecision;
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.ResponseCookie;
 import org.springframework.util.LinkedMultiValueMap;
@@ -28,9 +27,9 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Optional;
 
-import static com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS;
-import static com.dnastack.gatekeeper.auth.TokenAuthorizer.StandardDecisions.MALFORMED_CREDENTIALS;
-import static com.dnastack.gatekeeper.header.XForwardUtil.getExternalPath;
+import static com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS;
+import static com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions.MALFORMED_CREDENTIALS;
+import static com.dnastack.gatekeeper.util.XForwardUtil.getExternalPath;
 import static java.lang.String.format;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.MediaType.*;
@@ -39,11 +38,9 @@ import static org.springframework.web.reactive.function.server.ServerResponse.*;
 
 @Slf4j
 @Configuration
-public class Router {
+public class LoginRouter {
 
-    public static final String ACCESS_TOKEN_COOKIE_NAME = "access_token";
-    @Value("classpath:/static/index.html")
-    private Resource index;
+    private static final String ACCESS_TOKEN_COOKIE_NAME = "access_token";
 
     @Value("${gatekeeper.metadataServer.auth-server.token-url}")
     private String tokenUrl;
@@ -59,14 +56,6 @@ public class Router {
 
     @Autowired
     private Gatekeeper gatekeeper;
-
-    @Bean
-    RouterFunction<ServerResponse> index() {
-        return RouterFunctions.route(GET("/"),
-                                     request -> ok()
-                                             .contentType(TEXT_HTML)
-                                             .syncBody(index));
-    }
 
     @Bean
     RouterFunction<ServerResponse> apiLogin() {

@@ -1,5 +1,6 @@
-package com.dnastack.gatekeeper.routing;
+package com.dnastack.gatekeeper.challenge;
 
+import com.dnastack.gatekeeper.util.WebFluxUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -11,6 +12,7 @@ import java.net.URI;
 import static java.lang.String.format;
 
 @Slf4j
+public
 class LoginRedirectAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
     @Override
     public Mono<Void> handleBody(ServerWebExchange exchange) {
@@ -18,7 +20,7 @@ class LoginRedirectAuthenticationChallengeHandler implements AuthenticationChall
         final ServerHttpRequest request = exchange.getRequest();
         final String state = request.getPath().value();
         final String uri = authorizeUrl(state);
-        return WebFluxUtils.redirect(exchange, 307, URI.create(uri));
+        return WebFluxUtil.redirect(exchange, 307, URI.create(uri));
 
     }
 

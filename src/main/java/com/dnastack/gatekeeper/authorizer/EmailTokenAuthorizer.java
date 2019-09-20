@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.auth;
+package com.dnastack.gatekeeper.authorizer;
 
 import com.dnastack.gatekeeper.config.Account;
 import com.fasterxml.jackson.core.type.TypeReference;

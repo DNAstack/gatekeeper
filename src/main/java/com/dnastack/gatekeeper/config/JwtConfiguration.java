@@ -1,7 +1,7 @@
 package com.dnastack.gatekeeper.config;
 
-import com.dnastack.gatekeeper.auth.TokenAuthorizer;
-import com.dnastack.gatekeeper.auth.TokenAuthorizerFactory;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer;
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizerFactory;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.BeansException;

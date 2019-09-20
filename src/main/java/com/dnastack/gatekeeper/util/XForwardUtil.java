@@ -1,4 +1,4 @@
-package com.dnastack.gatekeeper.header;
+package com.dnastack.gatekeeper.util;
 
 import io.netty.handler.codec.http.HttpRequest;
 import lombok.AllArgsConstructor;
