@@ -1,6 +1,8 @@
 package com.dnastack.gatekeeper.gateway;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -22,6 +24,11 @@ public class PrependUriPathGatewayFilterFactory extends AbstractGatewayFilterFac
 		return Arrays.asList("uri");
 	}
 
+	public GatewayFilter apply(String url) {
+		return apply(new PrependUriPathGatewayFilterFactory.Config(URI.create(url)));
+	}
+
+
 	@Override
 	public GatewayFilter apply(Config config) {
 		return (exchange, chain) ->  {
@@ -37,6 +44,8 @@ public class PrependUriPathGatewayFilterFactory extends AbstractGatewayFilterFac
 	}
 
 	@Data
+    @RequiredArgsConstructor
+    @AllArgsConstructor
 	public static class Config {
 		private URI uri;
 	}

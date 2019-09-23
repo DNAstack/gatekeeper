@@ -1,9 +1,10 @@
 package com.dnastack.gatekeeper.authorizer;
 
-import com.dnastack.gatekeeper.acl.GatekeeperGatewayFilterFactory;
+import com.dnastack.gatekeeper.config.GatekeeperConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.Singular;
 import lombok.Value;
 
@@ -14,30 +15,9 @@ public interface TokenAuthorizer {
     @Builder
     @Value
     class AuthorizationDecision {
-        private AccessGrant grant;
+        private boolean allowed;
         @Singular
         private List<DecisionInfo> decisionInfos;
-    }
-
-    enum AccessGrant {
-        PUBLIC {
-            @Override
-            public String getConfiguredPrefix(GatekeeperGatewayFilterFactory.Config config) {
-                return config.getPublicPrefix();
-            }
-        }, REGISTERED {
-            @Override
-            public String getConfiguredPrefix(GatekeeperGatewayFilterFactory.Config config) {
-                return config.getRegisteredPrefix();
-            }
-        }, CONTROLLED {
-            @Override
-            public String getConfiguredPrefix(GatekeeperGatewayFilterFactory.Config config) {
-                return config.getControlledPrefix();
-            }
-        };
-
-        public abstract String getConfiguredPrefix(GatekeeperGatewayFilterFactory.Config config);
     }
 
     interface DecisionInfo {
@@ -73,6 +53,26 @@ public interface TokenAuthorizer {
         }
     }
 
-    AuthorizationDecision authorizeToken(Jws<Claims> jws);
+    default AuthorizationDecision handleNoToken() {
+        return AuthorizationDecision.builder()
+                                    .allowed(false)
+                                    .decisionInfo(StandardDecisions.REQUIRES_CREDENTIALS)
+                                    .build();
+    }
 
+    default AuthorizationDecision handleExpiredToken() {
+        return AuthorizationDecision.builder()
+                                    .allowed(false)
+                                    .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
+                                    .build();
+    }
+
+    default AuthorizationDecision handleInvalidToken() {
+        return AuthorizationDecision.builder()
+                                    .allowed(false)
+                                    .decisionInfo(StandardDecisions.MALFORMED_CREDENTIALS)
+                                    .build();
+    }
+
+    AuthorizationDecision handleValidToken(Jws<Claims> jws);
 }

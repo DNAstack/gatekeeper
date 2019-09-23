@@ -1,46 +1,93 @@
 server:
   port: 8082
-spring:
-  cloud:
-    gateway:
-      routes:
-        - predicates:
-            - Path=${gatekeeper.beaconServer.predicate}
-          filters:
-            - name: Gatekeeper
-              args:
-                strip-prefix: ${gatekeeper.beaconServer.strip-prefix}
-                public-prefix: ${gatekeeper.beaconServer.public-prefix}
-                registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
-                controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
-            - PrependUriPath=${gatekeeper.beaconServer.url}
-            - StripAuthHeader
-            - name: AddBasicAuthHeader
-              args:
-                username: ${outbound.basic.username}
-                password: ${outbound.basic.password}
-            - Logging
-          uri: ${gatekeeper.beaconServer.url}
-        - predicates:
-            - Path=${gatekeeper.metadataServer.predicate}
-          filters:
-            - name: Gatekeeper
-              args:
-                strip-prefix: 1
-                public-prefix: ${gatekeeper.metadataServer.public-prefix}
-                registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
-                controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
-                authChallengeHandler: LoginRedirect
-            - PrependUriPath=${gatekeeper.metadataServer.url}
-            - StripAuthHeader
-            - name: AddBasicAuthHeader
-              args:
-                username: ${outbound.basic.username}
-                password: ${outbound.basic.password}
-            - Logging
-          uri: ${gatekeeper.metadataServer.url}
+#spring:
+#  cloud:
+#    gateway:
+#      routes:
+#        - predicates:
+#            - Path=${gatekeeper.beaconServer.predicate}
+#          filters:
+#            - name: Gatekeeper
+#              args:
+#                strip-prefix: ${gatekeeper.beaconServer.strip-prefix}
+#                public-prefix: ${gatekeeper.beaconServer.public-prefix}
+#                registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
+#                controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
+#            - PrependUriPath=${gatekeeper.beaconServer.url}
+#            - StripAuthHeader
+#            - name: AddBasicAuthHeader
+#              args:
+#                username: ${outbound.basic.username}
+#                password: ${outbound.basic.password}
+#            - Logging
+#          uri: ${gatekeeper.beaconServer.url}
+#        - predicates:
+#            - Path=${gatekeeper.metadataServer.predicate}
+#          filters:
+#            - name: Gatekeeper
+#              args:
+#                strip-prefix: 1
+#                public-prefix: ${gatekeeper.metadataServer.public-prefix}
+#                registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
+#                controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
+#                authChallengeHandler: LoginRedirect
+#            - PrependUriPath=${gatekeeper.metadataServer.url}
+#            - StripAuthHeader
+#            - name: AddBasicAuthHeader
+#              args:
+#                username: ${outbound.basic.username}
+#                password: ${outbound.basic.password}
+#            - Logging
+#          uri: ${gatekeeper.metadataServer.url}
 
 gatekeeper:
+  gateways:
+    - id: beacon
+      inbound:
+        path: /beacon/{*path}
+      outbound:
+        url: http://httpbin.org/anything
+        authorization:
+          username: ${outbound.basic.username}
+          password: ${outbound.basic.password}
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /public/{path}
+        - id: registered
+          authorization:
+            method: valid-token-authorizer
+          outbound:
+            path: /registered/{path}
+        - id: controlled
+          authorization:
+            method: ga4gh-controlled-access-grant-authorizer
+            args:
+              value: "https://coffee.bean"
+              source: "http://localhost:8081"
+          outbound:
+            path: /protected/{path}
+      auth-challenge: NonInteractive
+    - id: metadata
+      inbound:
+        path: /metadata/{*path}
+      outbound:
+        url: http://httpbin.org/anything
+        authorization:
+          username: ${outbound.basic.username}
+          password: ${outbound.basic.password}
+      acl:
+        - id: controlled
+          authorization:
+            method: ga4gh-controlled-access-grant-authorizer
+            args:
+              value: "https://coffee.bean"
+              source: "http://localhost:8081"
+          outbound:
+            path: /protected/{path}
+      auth-challenge: LoginRedirect
   metadataServer:
     url: ${gatekeeper.beaconServer.url}
     public-prefix: ""
