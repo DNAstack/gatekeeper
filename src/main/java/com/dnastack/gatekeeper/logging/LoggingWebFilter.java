@@ -21,7 +21,8 @@ public class LoggingWebFilter implements WebFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE;
+        // Must come before NotFoundFilter to avoid logging 404s as errors
+        return Ordered.LOWEST_PRECEDENCE-1;
     }
 
     @Override

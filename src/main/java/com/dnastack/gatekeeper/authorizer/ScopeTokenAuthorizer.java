@@ -27,7 +27,7 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
     }
 
     @Override
-    public AuthorizationDecision authorizeToken(Jws<Claims> jws) {
+    public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
         log.info("Validated signature of inbound token {}", jws);
         final Claims claims = jws.getBody();
 
@@ -62,12 +62,10 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
         if (authTokenScopesSet.containsAll(requiredScopesSet)) {
             return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.CONTROLLED)
                                         .decisionInfo(StandardDecisions.ACCESS_GRANTED)
                                         .build();
         } else {
             return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.REGISTERED)
                                         .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
                                         .build();
         }

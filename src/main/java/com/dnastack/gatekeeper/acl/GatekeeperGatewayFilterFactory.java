@@ -1,44 +1,63 @@
 package com.dnastack.gatekeeper.acl;
 
+import com.dnastack.gatekeeper.authorizer.TokenAuthorizer;
 import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.AuthorizationDecision;
 import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions;
+import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.LoginRedirectAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.NonInteractiveAuthenticationChallengeHandler;
-import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
+import com.dnastack.gatekeeper.config.GatekeeperConfig;
+import com.dnastack.gatekeeper.token.TokenParser;
+import com.dnastack.gatekeeper.util.TokenUtil;
 import com.dnastack.gatekeeper.util.WebFluxUtil;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.dnastack.gatekeeper.authorizer.TokenAuthorizerFactory.createTokenAuthorizer;
 import static java.lang.String.format;
 
 @Component
 @Slf4j
-public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperGatewayFilterFactory.Config> {
+public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperConfig.Gateway> {
+
+    public static final Pattern PATH_VARIABLE_PATTERN = Pattern.compile("\\{([a-zA-Z]*)\\}");
+
+    // Can't default to empty list when we specify value in application.yml
+    @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
+    private List<String> acceptedAudiences;
 
     @Autowired
-    private Gatekeeper gatekeeper;
+    private TokenParser tokenParser;
+
+    @Autowired
+    private BeanFactory beanFactory;
 
     public GatekeeperGatewayFilterFactory() {
-        super(Config.class);
+        super(GatekeeperConfig.Gateway.class);
     }
 
-    private static void setAccessDecisionHints(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
-        authorizationDecision.getDecisionInfos()
-                             .forEach(decisionInfo -> setAccessDecisionHint(response, decisionInfo.getHeaderValue()));
+    private static void setAccessDecisionHints(ServerHttpResponse response, List<TokenAuthorizer.DecisionInfo> decisionInfos) {
+        decisionInfos.forEach(decisionInfo -> setAccessDecisionHint(response, decisionInfo.getHeaderValue()));
     }
 
     private static void setAccessDecisionHint(ServerHttpResponse response, String decision) {
@@ -47,13 +66,22 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     }
 
     @Override
-    public GatewayFilter apply(Config config) {
+    public GatewayFilter apply(GatekeeperConfig.Gateway config) {
+        if (config.getAcl().isEmpty()) {
+            throw new IllegalArgumentException(format("Gateway [%s] must have a non-empty ACL", config.getId()));
+        }
+
+        final Map<String, TokenAuthorizer> authorizersByAclItemId =
+                config.getAcl()
+                      .stream()
+                      .map(accessControlItem -> Map.entry(accessControlItem.getId(), createTokenAuthorizer(beanFactory, accessControlItem.getAuthorization())))
+                      .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue));
         final AuthenticationChallengeHandler authenticationChallengeHandler = createUnauthenticatedTokenHandler(config);
-        return (exchange, chain) -> doFilter(config, authenticationChallengeHandler, exchange, chain);
+        return (exchange, chain) -> doFilter(config, authorizersByAclItemId, authenticationChallengeHandler, exchange, chain);
     }
 
-    private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(Config config) {
-        final String authChallengeHandler = config.getAuthChallengeHandler();
+    private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(GatekeeperConfig.Gateway config) {
+        final String authChallengeHandler = config.getAuthChallenge();
         final String handlerNameSuffix = "AuthenticationChallengeHandler";
         final String fallbackHandlerName = NonInteractiveAuthenticationChallengeHandler.class.getSimpleName()
                                                                                              .replace(handlerNameSuffix,
@@ -75,58 +103,107 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         return handler;
     }
 
-    private Optional<String> extractAuthToken(ServerHttpRequest request) throws UnroutableRequestException {
-        final String authHeader = request.getHeaders().getFirst("authorization");
-
-        if (authHeader != null) {
-            final String[] parts = Optional.of(authHeader)
-                                           .map(value -> value.split(" "))
-                                           .filter(values -> values.length == 2)
-                                           .orElseThrow(() -> new UnroutableRequestException(400,
-                                                                                             "Invalid authorization header"));
-
-            final String authScheme = parts[0];
-            if (!authScheme.equalsIgnoreCase("bearer")) {
-                throw new UnroutableRequestException(400, "Unsupported authorization scheme");
-            }
-
-            return Optional.of(parts[1]);
-        } else {
-            return Optional.ofNullable(request.getQueryParams().getFirst("access_token"));
-        }
-    }
-
-    private Mono<Void> doFilter(Config config, AuthenticationChallengeHandler authenticationChallengeHandler, ServerWebExchange exchange, GatewayFilterChain chain) {
+    private Mono<Void> doFilter(GatekeeperConfig.Gateway config,
+                                Map<String, TokenAuthorizer> authorizersByAclItemId, AuthenticationChallengeHandler authenticationChallengeHandler,
+                                ServerWebExchange exchange,
+                                GatewayFilterChain chain) {
         final ServerHttpRequest request = exchange.getRequest();
         final ServerHttpResponse response = exchange.getResponse();
         final Optional<String> foundAuthToken;
         try {
-            foundAuthToken = extractAuthToken(request);
+            foundAuthToken = TokenUtil.extractAuthToken(request);
         } catch (UnroutableRequestException e) {
             return WebFluxUtil.rewriteResponse(response, e.getStatus(), e.getMessage());
         }
 
-        final AuthorizationDecision authorizationDecision = gatekeeper.determineAccessGrant(foundAuthToken.orElse(null));
-
-        // Add headers with decision info here before it's forgotten.
-        setAccessDecisionHints(response, authorizationDecision);
-
-        final String pathPrefix = authorizationDecision.getGrant().getConfiguredPrefix(config);
-        if (StringUtils.isEmpty(pathPrefix)) {
-            if (shouldDoAuthenticationChallenge(authorizationDecision)) {
-                return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
+        final AuthorizationDecision accessDecision;
+        final GatekeeperConfig.AccessControlItem selectedAccessControlItem;
+        final List<TokenAuthorizer.DecisionInfo> authHints;
+        {
+            Map.Entry<GatekeeperConfig.AccessControlItem, AuthorizationDecision> lastSuccessfulAuth = null, firstFailedAuth = null;
+            for (GatekeeperConfig.AccessControlItem accessControlItem : config.getAcl()) {
+                final TokenAuthorizer tokenAuthorizer = authorizersByAclItemId.get(accessControlItem.getId());
+                if (tokenAuthorizer == null) {
+                    throw new IllegalStateException(format("Unitialized authorizer for gateway/accessItem [%s/%s]",
+                                                           config.getId(),
+                                                           accessControlItem.getId()));
+                }
+                Gatekeeper gatekeeper = new Gatekeeper(tokenParser, tokenAuthorizer);
+                AuthorizationDecision curDecision = gatekeeper.determineAccessGrant(foundAuthToken.orElse(null));
+                if (curDecision.isAllowed()) {
+                    lastSuccessfulAuth = Map.entry(accessControlItem, curDecision);
+                } else {
+                    firstFailedAuth = Map.entry(accessControlItem, curDecision);
+                    break;
+                }
+            }
+            if (lastSuccessfulAuth == null && firstFailedAuth == null) {
+                throw new IllegalStateException(format("Unable to process ACL for gateway [%s]. Check that ACL is defined.", config.getId()));
+            } else if (lastSuccessfulAuth != null) {
+                accessDecision = lastSuccessfulAuth.getValue();
+                authHints = Optional.ofNullable(firstFailedAuth)
+                                    .map(Map.Entry::getValue)
+                                    .orElse(lastSuccessfulAuth.getValue())
+                                    .getDecisionInfos();
+                selectedAccessControlItem = lastSuccessfulAuth.getKey();
             } else {
-                return noContentForbidden(response, authorizationDecision);
+                accessDecision = firstFailedAuth.getValue();
+                authHints = firstFailedAuth.getValue().getDecisionInfos();
+                selectedAccessControlItem = firstFailedAuth.getKey();
             }
-        } else if (isInvalidCredential(authorizationDecision)) {
-            return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
-        } else {
-            if (shouldDoAuthenticationChallenge(authorizationDecision)) {
-                authenticationChallengeHandler.addHeaders(response);
-            }
-            return supportedAccessLevelResponse(exchange, chain, pathPrefix, config.getStripPrefix());
         }
 
+        // Add headers with decision info here before it's forgotten.
+        setAccessDecisionHints(response, authHints);
+
+        if (!accessDecision.isAllowed() || isInvalidCredential(authHints)) {
+            if (shouldDoAuthenticationChallenge(authHints)) {
+                return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
+            } else {
+                return noContentForbidden(response, selectedAccessControlItem);
+            }
+        } else {
+            if (shouldDoAuthenticationChallenge(authHints)) {
+                authenticationChallengeHandler.addHeaders(response);
+            }
+
+            final String outboundPath = computeOutboundPath(config, selectedAccessControlItem, ServerWebExchangeUtils.getUriTemplateVariables(exchange));
+            final ServerHttpRequest newRequest = request.mutate().path(outboundPath).build();
+
+            return chain.filter(exchange.mutate().request(newRequest).build());
+        }
+
+    }
+
+    /**
+     * Converts patterns like /foo/{bar}/{baz} to paths based on bound variables from Spring Cloud Gateway Path Route Predicate Factory.
+     */
+    static String computeOutboundPath(GatekeeperConfig.Gateway config, GatekeeperConfig.AccessControlItem accessControlItem, Map<String, String> boundVariables) {
+        final String outboundExpression = Optional.ofNullable(accessControlItem)
+                                                  .map(GatekeeperConfig.AccessControlItem::getOutbound)
+                                                  .map(GatekeeperConfig.OutboundRequest::getPath)
+                                                  .orElseGet(() -> config.getOutbound().getPath());
+        final Matcher pathVariableMatcher = PATH_VARIABLE_PATTERN.matcher(outboundExpression);
+        final StringBuilder sb = new StringBuilder();
+        while (pathVariableMatcher.find()) {
+            final String variableName = pathVariableMatcher.group(1);
+            final String variableValue = boundVariables.get(variableName);
+            if (variableValue == null) {
+                throw new IllegalArgumentException(format("Missing variable [%s] used in gateway/acl [%s/%s]",
+                                                          variableName,
+                                                          config.getId(),
+                                                          accessControlItem.getId()));
+            }
+
+            pathVariableMatcher.appendReplacement(sb, variableValue);
+        }
+        pathVariableMatcher.appendTail(sb);
+
+        if (sb.length() < 1 || sb.charAt(0) != '/') {
+            sb.insert(0, '/');
+        }
+
+        return sb.toString();
     }
 
     private Mono<Void> doFullAuthChallenge(AuthenticationChallengeHandler authenticationChallengeHandler, ServerWebExchange exchange, ServerHttpResponse response) {
@@ -134,70 +211,25 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         return authenticationChallengeHandler.handleBody(exchange);
     }
 
-    private boolean isInvalidCredential(AuthorizationDecision authorizationDecision) {
+    private boolean isInvalidCredential(List<TokenAuthorizer.DecisionInfo> decisionInfos) {
         return Stream.of(StandardDecisions.EXPIRED_CREDENTIALS,
                          StandardDecisions.MALFORMED_CREDENTIALS)
-                     .anyMatch(decision -> authorizationDecision.getDecisionInfos().contains(decision));
+                     .anyMatch(decisionInfos::contains);
     }
 
-    private boolean shouldDoAuthenticationChallenge(AuthorizationDecision authorizationDecision) {
+    private boolean shouldDoAuthenticationChallenge(List<TokenAuthorizer.DecisionInfo> decisionInfos) {
         return Stream.of(StandardDecisions.REQUIRES_CREDENTIALS,
                          StandardDecisions.EXPIRED_CREDENTIALS,
                          StandardDecisions.MALFORMED_CREDENTIALS)
-                     .anyMatch(decision -> authorizationDecision.getDecisionInfos().contains(decision));
+                     .anyMatch(decisionInfos::contains);
     }
 
-    private Mono<Void> supportedAccessLevelResponse(ServerWebExchange exchange,
-                                                    GatewayFilterChain chain,
-                                                    String pathPrefix, int stripPrefix) {
-
-        ServerHttpRequest request = exchange.getRequest();
-        final String incomingPath = request.getURI().getPath();
-        String path = normalizePath(pathPrefix) + stripPrefixKeepingALeadingSlashAtLeast(stripPrefix, incomingPath);
-        final ServerHttpRequest newRequest = request.mutate().path(path).build();
-
-        return chain.filter(exchange.mutate().request(newRequest).build());
-    }
-
-    /**
-     * Helper function to remove the given number of prefixes from the incoming path.
-     * Returns at least a single slash if removal of all prefixes evaluates to
-     * an empty string.
-     *
-     * @param n
-     * @param incomingPath
-     * @return Removes the "n" number of prefixes from the input string and returns at least a single "/"
-     */
-    private String stripPrefixKeepingALeadingSlashAtLeast(int n, String incomingPath) {
-        String result =  Arrays.stream(incomingPath.split("/"))
-                     .filter(s -> !s.isEmpty())
-                     .skip(n)
-                     .reduce("",
-                             (part1, part2) -> part1 + "/" + part2);
-
-        if (result.isEmpty()) {
-            result = "/";
-        }
-        return result;
-    }
-
-    private Mono<Void> noContentForbidden(ServerHttpResponse response, AuthorizationDecision authorizationDecision) {
+    private Mono<Void> noContentForbidden(ServerHttpResponse response, GatekeeperConfig.AccessControlItem accessControlItem) {
         log.debug("Prefix is empty. Sending 403 auth challenge.");
         return WebFluxUtil.rewriteResponse(response, 403,
                                            format("%s requests not accepted.",
-                                                   authorizationDecision.getGrant().toString()));
+                                                   accessControlItem.getId()));
 
-    }
-
-    /**
-     * @param pathPart Part of a path. Must not be null.
-     * @return Given part of path normalized to be empty or else have a leading slash and no trailing slash.
-     */
-    private String normalizePath(String pathPart) {
-        return Arrays.stream(pathPart.split("/"))
-                     .filter(s -> !s.isEmpty())
-                     .reduce("",
-                             (part1, part2) -> part1 + "/" + part2);
     }
 
     @Data

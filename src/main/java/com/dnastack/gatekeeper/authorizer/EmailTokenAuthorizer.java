@@ -35,7 +35,7 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
 
 
     @Override
-    public AuthorizationDecision authorizeToken(Jws<Claims> jws) {
+    public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
         log.info("Validated signature of inbound token {}", jws);
         final Claims claims = jws.getBody();
 
@@ -43,12 +43,10 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
         final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
         if (hasWhitelistedEmailAddress) {
             return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.CONTROLLED)
                                         .decisionInfo(StandardDecisions.ACCESS_GRANTED)
                                         .build();
         } else {
             return AuthorizationDecision.builder()
-                                        .grant(AccessGrant.REGISTERED)
                                         .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
                                         .build();
         }

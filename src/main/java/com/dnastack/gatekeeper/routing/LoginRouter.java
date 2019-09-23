@@ -1,7 +1,6 @@
 package com.dnastack.gatekeeper.routing;
 
-import com.dnastack.gatekeeper.acl.Gatekeeper;
-import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.AuthorizationDecision;
+import com.dnastack.gatekeeper.token.TokenParser;
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -27,8 +26,6 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.Optional;
 
-import static com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions.EXPIRED_CREDENTIALS;
-import static com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions.MALFORMED_CREDENTIALS;
 import static com.dnastack.gatekeeper.util.XForwardUtil.getExternalPath;
 import static java.lang.String.format;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -42,20 +39,20 @@ public class LoginRouter {
 
     private static final String ACCESS_TOKEN_COOKIE_NAME = "access_token";
 
-    @Value("${gatekeeper.metadataServer.auth-server.token-url}")
+    @Value("${gatekeeper.auth-server.token-url}")
     private String tokenUrl;
 
-    @Value("${gatekeeper.metadataServer.auth-server.client-id}")
+    @Value("${gatekeeper.auth-server.client-id}")
     private String clientId;
 
-    @Value("${gatekeeper.metadataServer.auth-server.client-secret}")
+    @Value("${gatekeeper.auth-server.client-secret}")
     private String clientSecret;
 
-    @Value("${gatekeeper.metadataServer.auth-server.authorize-url}")
+    @Value("${gatekeeper.auth-server.authorize-url}")
     private String metadataServerAuthUrl;
 
     @Autowired
-    private Gatekeeper gatekeeper;
+    private TokenParser tokenParser;
 
     @Bean
     RouterFunction<ServerResponse> apiLogin() {
@@ -67,7 +64,7 @@ public class LoginRouter {
                                                                              .getFirst(ACCESS_TOKEN_COOKIE_NAME))
                                                     .map(HttpCookie::getValue);
         final String state = serverRequest.queryParam("state").orElse("/metadata");
-        if (foundToken.filter(this::isValidToken).isPresent()) {
+        if (foundToken.filter(tokenParser::isValid).isPresent()) {
             final String token = foundToken.get();
             final String targetUri = format("%s?access_token=%s", getExternalPath(serverRequest, state), token);
             return temporaryRedirect(URI.create(targetUri)).build();
@@ -79,13 +76,6 @@ public class LoginRouter {
                                               state);
             return temporaryRedirect(URI.create(fullAuthUrl)).build();
         }
-    }
-
-    private boolean isValidToken(String token) {
-        final AuthorizationDecision authDecision = gatekeeper.determineAccessGrant(token);
-        return !authDecision.getDecisionInfos()
-                            .stream()
-                            .anyMatch(info -> EXPIRED_CREDENTIALS.equals(info) || MALFORMED_CREDENTIALS.equals(info));
     }
 
     private String redirectUri(ServerRequest request) {

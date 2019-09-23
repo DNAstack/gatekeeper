@@ -1,6 +1,8 @@
 package com.dnastack.gatekeeper.gateway;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.stereotype.Component;
@@ -12,6 +14,10 @@ public class AddBasicAuthHeaderGatewayFilterFactory extends AbstractGatewayFilte
 
 	public AddBasicAuthHeaderGatewayFilterFactory() {
 		super(Config.class);
+	}
+
+	public GatewayFilter apply(String username, String password) {
+		return apply(new AddBasicAuthHeaderGatewayFilterFactory.Config(username, password));
 	}
 
 	@Override
@@ -26,6 +32,8 @@ public class AddBasicAuthHeaderGatewayFilterFactory extends AbstractGatewayFilte
     }
 
     @Data
+	@RequiredArgsConstructor
+	@AllArgsConstructor
     public static class Config {
 		private String username, password;
 	}

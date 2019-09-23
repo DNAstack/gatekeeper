@@ -1,8 +1,11 @@
 package com.dnastack.gatekeeper.authorizer;
 
+import com.dnastack.gatekeeper.config.TokenAuthorizationConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
 
 import java.util.Map;
 
@@ -51,6 +54,11 @@ public abstract class TokenAuthorizerFactory<T> {
 
         log.info("Creating token enhancer from config [{}]", config);
         return create(convertedConfig);
+    }
+
+    public static TokenAuthorizer createTokenAuthorizer(BeanFactory beanFactory, TokenAuthorizationConfig config) throws BeansException {
+        final TokenAuthorizerFactory<?> factory = beanFactory.getBean(config.getMethod(), TokenAuthorizerFactory.class);
+        return factory.create(config.getArgs());
     }
 
 }

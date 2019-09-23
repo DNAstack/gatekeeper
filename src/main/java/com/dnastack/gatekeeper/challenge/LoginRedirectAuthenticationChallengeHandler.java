@@ -16,7 +16,6 @@ public
 class LoginRedirectAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
     @Override
     public Mono<Void> handleBody(ServerWebExchange exchange) {
-        log.debug("Prefix is empty. Sending 401 auth challenge.");
         final ServerHttpRequest request = exchange.getRequest();
         final String state = request.getPath().value();
         final String uri = authorizeUrl(state);

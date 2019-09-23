@@ -35,6 +35,10 @@ public class LoggingGatewayFilterFactory extends AbstractGatewayFilterFactory {
 		this.loggingFilter = loggingFilter;
 	}
 
+	public GatewayFilter apply() {
+		return apply((Object) null);
+	}
+
 	@Override
 	public GatewayFilter apply(Object config) {
 		return (exchange, chain) -> loggingFilter.filter(exchange, chain::filter);
