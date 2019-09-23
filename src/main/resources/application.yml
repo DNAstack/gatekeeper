@@ -1,66 +1,24 @@
 server:
   port: 8082
-#spring:
-#  cloud:
-#    gateway:
-#      routes:
-#        - predicates:
-#            - Path=${gatekeeper.beaconServer.predicate}
-#          filters:
-#            - name: Gatekeeper
-#              args:
-#                strip-prefix: ${gatekeeper.beaconServer.strip-prefix}
-#                public-prefix: ${gatekeeper.beaconServer.public-prefix}
-#                registered-prefix: ${gatekeeper.beaconServer.registered-prefix}
-#                controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}
-#            - PrependUriPath=${gatekeeper.beaconServer.url}
-#            - StripAuthHeader
-#            - name: AddBasicAuthHeader
-#              args:
-#                username: ${outbound.basic.username}
-#                password: ${outbound.basic.password}
-#            - Logging
-#          uri: ${gatekeeper.beaconServer.url}
-#        - predicates:
-#            - Path=${gatekeeper.metadataServer.predicate}
-#          filters:
-#            - name: Gatekeeper
-#              args:
-#                strip-prefix: 1
-#                public-prefix: ${gatekeeper.metadataServer.public-prefix}
-#                registered-prefix: ${gatekeeper.metadataServer.registered-prefix}
-#                controlled-prefix: ${gatekeeper.metadataServer.controlled-prefix}
-#                authChallengeHandler: LoginRedirect
-#            - PrependUriPath=${gatekeeper.metadataServer.url}
-#            - StripAuthHeader
-#            - name: AddBasicAuthHeader
-#              args:
-#                username: ${outbound.basic.username}
-#                password: ${outbound.basic.password}
-#            - Logging
-#          uri: ${gatekeeper.metadataServer.url}
 
 gatekeeper:
   gateways:
-    - id: beacon
+    - id: api
       inbound:
-        path: /beacon/{*path}
+        path: /api/{*path}
       outbound:
-        url: http://httpbin.org/anything
-        authorization:
-          username: ${outbound.basic.username}
-          password: ${outbound.basic.password}
+        base-url: http://httpbin.org/anything/
       acl:
         - id: public
           authorization:
             method: public-authorizer
           outbound:
-            path: /public/{path}
+            path: public/{path}
         - id: registered
           authorization:
             method: valid-token-authorizer
           outbound:
-            path: /registered/{path}
+            path: registered/{path}
         - id: controlled
           authorization:
             method: ga4gh-controlled-access-grant-authorizer
@@ -68,16 +26,13 @@ gatekeeper:
               value: "https://coffee.bean"
               source: "http://localhost:8081"
           outbound:
-            path: /protected/{path}
+            path: protected/{path}
       auth-challenge: NonInteractive
-    - id: metadata
+    - id: ui
       inbound:
-        path: /metadata/{*path}
+        path: /ui/{*path}
       outbound:
-        url: http://httpbin.org/anything
-        authorization:
-          username: ${outbound.basic.username}
-          password: ${outbound.basic.password}
+        base-url: http://httpbin.org/anything/
       acl:
         - id: controlled
           authorization:
@@ -86,34 +41,13 @@ gatekeeper:
               value: "https://coffee.bean"
               source: "http://localhost:8081"
           outbound:
-            path: /protected/{path}
+            path: protected/{path}
       auth-challenge: LoginRedirect
-  metadataServer:
-    url: ${gatekeeper.beaconServer.url}
-    public-prefix: ""
-    registered-prefix: ""
-    controlled-prefix: "protected"
-    predicate: /metadata/**
-    auth-server:
-      authorize-url: http://localhost:8081/oauth/authorize
-      token-url: http://localhost:8081/oauth/token
-      client-id: gatekeeper
-      client-secret: gatekeepersecret
-  beaconServer:
-    url: http://httpbin.org/anything
-    public-prefix: public
-    registered-prefix: registered
-    controlled-prefix: protected
-    predicate: /beacon/**
-    strip-prefix: 1
-  required:
-    scope: openid
-  token:
-    authorization:
-      method: ga4gh-controlled-access-grant-authorizer
-      args:
-        value: "https://coffee.bean"
-        source: "http://localhost:8081"
+  auth-server:
+    authorize-url: http://localhost:8081/oauth/authorize
+    token-url: http://localhost:8081/oauth/token
+    client-id: gatekeeper
+    client-secret: gatekeepersecret
 
 logging:
   level:
@@ -122,12 +56,6 @@ logging:
     # set to DEBUG to log inbound and outbound HTTP headers
     com.dnastack.gatekeeper.routing.LoggingWebFilter: INFO
 
-outbound:
-  # These are the development credentials corresponding to the development credentials in beacon server.
-  # These are NOT used in any deployments. They are only meant for quick developer startup.
-  basic:
-    username: mssng
-    password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
 inbound:
   jwt:
     - issuer: http://localhost:8081
@@ -145,3 +73,75 @@ inbound:
         40X5kGJHax0ZU2KeaVAl8qrJSE7cOiv6TxnIcBJ00isVdLggzz72xK5R9R1e9MEO
         DQIDAQAB
         -----END PUBLIC KEY-----
+
+---
+spring:
+  profiles: beacon-with-metadata
+gatekeeper:
+  gateways:
+    - id: beacon
+      inbound:
+        path: ${gatekeeper.beaconServer.prefix}/{*path}
+      outbound:
+        base-url: http://httpbin.org/anything/
+        authentication:
+          method: basic-auth-client-authenticator
+          args:
+            username: ${outbound.basic.username}
+            password: ${outbound.basic.password}
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: public/{path}
+        - id: registered
+          authorization:
+            method: valid-token-authorizer
+          outbound:
+            path: registered/{path}
+        - id: controlled
+          authorization:
+            method: ga4gh-controlled-access-grant-authorizer
+            args:
+              value: "https://coffee.bean"
+              source: "http://localhost:8081"
+          outbound:
+            path: protected/{path}
+      auth-challenge: NonInteractive
+    - id: metadata
+      inbound:
+        path: ${gatekeeper.metadataServer.prefix}/{*path}
+      outbound:
+        base-url: http://httpbin.org/anything/
+        authentication:
+          method: basic-auth-client-authenticator
+          args:
+            username: ${outbound.basic.username}
+            password: ${outbound.basic.password}
+      acl:
+        - id: controlled
+          authorization:
+            method: ga4gh-controlled-access-grant-authorizer
+            args:
+              value: "https://coffee.bean"
+              source: "http://localhost:8081"
+          outbound:
+            path: protected/{path}
+      auth-challenge: LoginRedirect
+  metadataServer:
+    url: ${gatekeeper.beaconServer.url}
+    controlled-prefix: "protected"
+    prefix: /metadata
+  beaconServer:
+    url: http://httpbin.org/anything
+    public-prefix: public
+    registered-prefix: registered
+    controlled-prefix: protected
+    prefix: /beacon
+outbound:
+  # These are the development credentials corresponding to the development credentials in beacon server.
+  # These are NOT used in any deployments. They are only meant for quick developer startup.
+  basic:
+    username: mssng
+    password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25

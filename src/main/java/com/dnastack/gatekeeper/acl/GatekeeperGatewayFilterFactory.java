@@ -7,12 +7,12 @@ import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.LoginRedirectAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.NonInteractiveAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.config.GatekeeperConfig;
-import com.dnastack.gatekeeper.config.JwtConfiguration;
 import com.dnastack.gatekeeper.token.TokenParser;
 import com.dnastack.gatekeeper.token.TokenUtil;
 import com.dnastack.gatekeeper.util.WebFluxUtil;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -25,37 +25,32 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.dnastack.gatekeeper.authorizer.TokenAuthorizerFactory.createTokenAuthorizer;
 import static java.lang.String.format;
 
 @Component
 @Slf4j
 public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperConfig.Gateway> {
 
-    @Autowired
-    private JwtConfiguration.ParserProvider parserProvider;
+    public static final Pattern PATH_VARIABLE_PATTERN = Pattern.compile("\\{([a-zA-Z]*)\\}");
 
     // Can't default to empty list when we specify value in application.yml
     @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
     private List<String> acceptedAudiences;
 
     @Autowired
-    private TokenAuthorizer tokenAuthorizer;
-
-    @Autowired
     private TokenParser tokenParser;
 
     @Autowired
-    private UnsafeBodyParser bodyParser;
-
-    public static final Pattern PATH_VARIABLE_PATTERN = Pattern.compile("\\{([a-zA-Z])}");
+    private BeanFactory beanFactory;
 
     public GatekeeperGatewayFilterFactory() {
         super(GatekeeperConfig.Gateway.class);
@@ -75,12 +70,18 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         if (config.getAcl().isEmpty()) {
             throw new IllegalArgumentException(format("Gateway [%s] must have a non-empty ACL", config.getId()));
         }
+
+        final Map<String, TokenAuthorizer> authorizersByAclItemId =
+                config.getAcl()
+                      .stream()
+                      .map(accessControlItem -> Map.entry(accessControlItem.getId(), createTokenAuthorizer(beanFactory, accessControlItem.getAuthorization())))
+                      .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue));
         final AuthenticationChallengeHandler authenticationChallengeHandler = createUnauthenticatedTokenHandler(config);
-        return (exchange, chain) -> doFilter(config, authenticationChallengeHandler, exchange, chain);
+        return (exchange, chain) -> doFilter(config, authorizersByAclItemId, authenticationChallengeHandler, exchange, chain);
     }
 
     private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(GatekeeperConfig.Gateway config) {
-        final String authChallengeHandler = config.getAuthChallenger();
+        final String authChallengeHandler = config.getAuthChallenge();
         final String handlerNameSuffix = "AuthenticationChallengeHandler";
         final String fallbackHandlerName = NonInteractiveAuthenticationChallengeHandler.class.getSimpleName()
                                                                                              .replace(handlerNameSuffix,
@@ -103,7 +104,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     }
 
     private Mono<Void> doFilter(GatekeeperConfig.Gateway config,
-                                AuthenticationChallengeHandler authenticationChallengeHandler,
+                                Map<String, TokenAuthorizer> authorizersByAclItemId, AuthenticationChallengeHandler authenticationChallengeHandler,
                                 ServerWebExchange exchange,
                                 GatewayFilterChain chain) {
         final ServerHttpRequest request = exchange.getRequest();
@@ -121,6 +122,12 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         {
             Map.Entry<GatekeeperConfig.AccessControlItem, AuthorizationDecision> lastSuccessfulAuth = null, firstFailedAuth = null;
             for (GatekeeperConfig.AccessControlItem accessControlItem : config.getAcl()) {
+                final TokenAuthorizer tokenAuthorizer = authorizersByAclItemId.get(accessControlItem.getId());
+                if (tokenAuthorizer == null) {
+                    throw new IllegalStateException(format("Unitialized authorizer for gateway/accessItem [%s/%s]",
+                                                           config.getId(),
+                                                           accessControlItem.getId()));
+                }
                 Gatekeeper gatekeeper = new Gatekeeper(tokenParser, tokenAuthorizer);
                 AuthorizationDecision curDecision = gatekeeper.determineAccessGrant(foundAuthToken.orElse(null));
                 if (curDecision.isAllowed()) {
@@ -160,7 +167,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                 authenticationChallengeHandler.addHeaders(response);
             }
 
-            final String outboundPath = computeOutboundPath(config, exchange, selectedAccessControlItem);
+            final String outboundPath = computeOutboundPath(config, selectedAccessControlItem, ServerWebExchangeUtils.getUriTemplateVariables(exchange));
             final ServerHttpRequest newRequest = request.mutate().path(outboundPath).build();
 
             return chain.filter(exchange.mutate().request(newRequest).build());
@@ -171,24 +178,30 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
     /**
      * Converts patterns like /foo/{bar}/{baz} to paths based on bound variables from Spring Cloud Gateway Path Route Predicate Factory.
      */
-    private String computeOutboundPath(GatekeeperConfig.Gateway config, ServerWebExchange exchange, GatekeeperConfig.AccessControlItem accessControlItem) {
+    static String computeOutboundPath(GatekeeperConfig.Gateway config, GatekeeperConfig.AccessControlItem accessControlItem, Map<String, String> boundVariables) {
         final String outboundExpression = Optional.ofNullable(accessControlItem)
                                                   .map(GatekeeperConfig.AccessControlItem::getOutbound)
                                                   .map(GatekeeperConfig.OutboundRequest::getPath)
                                                   .orElseGet(() -> config.getOutbound().getPath());
         final Matcher pathVariableMatcher = PATH_VARIABLE_PATTERN.matcher(outboundExpression);
-        final Map<String, String> boundVariables = ServerWebExchangeUtils.getUriTemplateVariables(exchange);
         final StringBuilder sb = new StringBuilder();
         while (pathVariableMatcher.find()) {
             final String variableName = pathVariableMatcher.group(1);
-            pathVariableMatcher.appendReplacement(sb, boundVariables.computeIfAbsent(variableName, name -> {
+            final String variableValue = boundVariables.get(variableName);
+            if (variableValue == null) {
                 throw new IllegalArgumentException(format("Missing variable [%s] used in gateway/acl [%s/%s]",
-                                                          name,
+                                                          variableName,
                                                           config.getId(),
                                                           accessControlItem.getId()));
-            }));
+            }
+
+            pathVariableMatcher.appendReplacement(sb, variableValue);
         }
         pathVariableMatcher.appendTail(sb);
+
+        if (sb.length() < 1 || sb.charAt(0) != '/') {
+            sb.insert(0, '/');
+        }
 
         return sb.toString();
     }
@@ -217,17 +230,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                                            format("%s requests not accepted.",
                                                    accessControlItem.getId()));
 
-    }
-
-    /**
-     * @param pathPart Part of a path. Must not be null.
-     * @return Given part of path normalized to be empty or else have a leading slash and no trailing slash.
-     */
-    private String normalizePath(String pathPart) {
-        return Arrays.stream(pathPart.split("/"))
-                     .filter(s -> !s.isEmpty())
-                     .reduce("",
-                             (part1, part2) -> part1 + "/" + part2);
     }
 
     @Data

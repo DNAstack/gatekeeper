@@ -1,10 +1,7 @@
 package com.dnastack.gatekeeper.config;
 
-import com.dnastack.gatekeeper.authorizer.TokenAuthorizer;
-import com.dnastack.gatekeeper.authorizer.TokenAuthorizerFactory;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -59,12 +56,6 @@ public class JwtConfiguration {
         } else {
             return Jwts.parser().setSigningKey(issuerConfig.getPublicKey());
         }
-    }
-
-    @Bean
-    public TokenAuthorizer createTokenAuthorizer() throws BeansException {
-        final TokenAuthorizerFactory<?> factory = beanFactory.getBean(config.getMethod(), TokenAuthorizerFactory.class);
-        return factory.create(config.getArgs());
     }
 
 }

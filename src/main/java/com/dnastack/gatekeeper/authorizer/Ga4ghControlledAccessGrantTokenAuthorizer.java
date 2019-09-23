@@ -42,10 +42,12 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
 
         if (givenControlledAccessGrants.anyMatch(this::matches)) {
             return AuthorizationDecision.builder()
+                                        .allowed(true)
                                         .decisionInfo(StandardDecisions.ACCESS_GRANTED)
                                         .build();
         } else {
             return AuthorizationDecision.builder()
+                                        .allowed(false)
                                         .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
                                         .build();
         }

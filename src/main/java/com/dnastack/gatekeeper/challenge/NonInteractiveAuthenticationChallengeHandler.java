@@ -11,7 +11,6 @@ public
 class NonInteractiveAuthenticationChallengeHandler implements AuthenticationChallengeHandler {
     @Override
     public Mono<Void> handleBody(ServerWebExchange exchange) {
-        log.debug("Prefix is empty. Sending 401 auth challenge.");
         return WebFluxUtil.rewriteResponse(exchange.getResponse(), 401, "public requests not accepted.");
 
     }

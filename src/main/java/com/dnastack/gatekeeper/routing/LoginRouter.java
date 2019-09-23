@@ -39,16 +39,16 @@ public class LoginRouter {
 
     private static final String ACCESS_TOKEN_COOKIE_NAME = "access_token";
 
-    @Value("${gatekeeper.metadataServer.auth-server.token-url}")
+    @Value("${gatekeeper.auth-server.token-url}")
     private String tokenUrl;
 
-    @Value("${gatekeeper.metadataServer.auth-server.client-id}")
+    @Value("${gatekeeper.auth-server.client-id}")
     private String clientId;
 
-    @Value("${gatekeeper.metadataServer.auth-server.client-secret}")
+    @Value("${gatekeeper.auth-server.client-secret}")
     private String clientSecret;
 
-    @Value("${gatekeeper.metadataServer.auth-server.authorize-url}")
+    @Value("${gatekeeper.auth-server.authorize-url}")
     private String metadataServerAuthUrl;
 
     @Autowired

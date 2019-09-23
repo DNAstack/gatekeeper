@@ -7,35 +7,21 @@ import io.jsonwebtoken.Jws;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-public class PublicAuthorizer implements TokenAuthorizer {
-
-    @Override
-    public AuthorizationDecision handleNoToken() {
-        return AuthorizationDecision.builder()
-                                    .allowed(true)
-                                    .build();
-    }
-
-    @Override
-    public AuthorizationDecision handleExpiredToken() {
-        return handleNoToken();
-    }
-
-    @Override
-    public AuthorizationDecision handleInvalidToken() {
-        return handleNoToken();
-    }
+public class ValidTokenAuthorizer implements TokenAuthorizer {
 
     @Override
     public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
-        return handleNoToken();
+        return AuthorizationDecision.builder()
+                                    .allowed(true)
+                                    .decisionInfo(StandardDecisions.ACCESS_GRANTED)
+                                    .build();
     }
 
-    @Component("public-authorizer")
-    public static class PublicAuthorizerFactory extends TokenAuthorizerFactory<Object> {
+    @Component("valid-token-authorizer")
+    public static class ValidTokenAuthorizerFactory extends TokenAuthorizerFactory<Object> {
 
         @Autowired
-        public PublicAuthorizerFactory(ObjectMapper objectMapper) {
+        public ValidTokenAuthorizerFactory(ObjectMapper objectMapper) {
             super(objectMapper);
         }
 
@@ -46,7 +32,7 @@ public class PublicAuthorizer implements TokenAuthorizer {
 
         @Override
         protected TokenAuthorizer create(Object config) {
-            return new PublicAuthorizer();
+            return new ValidTokenAuthorizer();
         }
     }
 }

@@ -20,8 +20,8 @@ public class GatekeeperConfig {
         private InboundPredicate inbound;
         private OutboundRequest outbound;
         private List<AccessControlItem> acl;
-        @JsonProperty("auth-challenger")
-        private String authChallenger;
+        @JsonProperty("auth-challenge")
+        private String authChallenge;
     }
 
     @Data
@@ -34,9 +34,10 @@ public class GatekeeperConfig {
     @RequiredArgsConstructor
     @AllArgsConstructor
     public static class OutboundRequest {
-        private String url;
+        @JsonProperty("base-url")
+        private String baseUrl;
         private String path;
-        private OutboundAuthorization authorization;
+        private OutboundAuthentication authentication;
     }
 
     @Data
@@ -47,7 +48,19 @@ public class GatekeeperConfig {
     }
 
     @Data
-    public static class OutboundAuthorization {
+    public static class OutboundAuthentication {
+        /**
+         * Currently only basic-auth-client-authenticator is valid.
+         */
+        private String method;
+        /**
+         * Currently only basic auth is supported.
+         */
+        private UsernamePasswordArgs args;
+    }
+
+    @Data
+    public static class UsernamePasswordArgs {
         private String username;
         private String password;
     }

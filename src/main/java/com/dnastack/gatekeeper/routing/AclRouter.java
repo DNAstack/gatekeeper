@@ -14,7 +14,7 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.net.URI;
+import static java.lang.String.format;
 
 @Slf4j
 @Configuration
@@ -40,11 +40,19 @@ public class AclRouter {
         RouteLocatorBuilder.Builder routes = builder.routes();
 
         for (GatekeeperConfig.Gateway gateway : config.getGateways()) {
-            final GatewayFilter prependUriFilter = prependUriPathGatewayFilterFactory.apply(gateway.getOutbound().getUrl());
-            final GatekeeperConfig.OutboundAuthorization authorization = gateway.getOutbound().getAuthorization();
-            final String username = authorization.getUsername();
-            final String password = authorization.getPassword();
-            final GatewayFilter basicAuthFilter = addBasicAuthHeaderGatewayFilterFactory.apply(username, password);
+            final GatewayFilter prependUriFilter = prependUriPathGatewayFilterFactory.apply(gateway.getOutbound().getBaseUrl());
+            final GatekeeperConfig.OutboundAuthentication outboundAuthentication = gateway.getOutbound().getAuthentication();
+            final GatewayFilter outboundAuthFilter;
+            if (outboundAuthentication == null) {
+                outboundAuthFilter = ((exchange, chain) -> chain.filter(exchange));
+            }
+            else if ("basic-auth-client-authenticator".equals(outboundAuthentication.getMethod())) {
+                final String username = outboundAuthentication.getArgs().getUsername();
+                final String password = outboundAuthentication.getArgs().getPassword();
+                outboundAuthFilter = addBasicAuthHeaderGatewayFilterFactory.apply(username, password);
+            } else {
+                throw new IllegalArgumentException(format("Unsupported outbound authenticator [%s]", outboundAuthentication.getMethod()));
+            }
 
             final GatewayFilter gatekeeperFilter = gatekeeperGatewayFilterFactory.apply(gateway);
             routes = routes.route(gateway.getId(),
@@ -52,9 +60,9 @@ public class AclRouter {
                                         .filters(f -> f.filter(gatekeeperFilter)
                                                        .filter(prependUriFilter)
                                                        .filter(stripAuthHeaderFilter)
-                                                       .filter(basicAuthFilter)
+                                                       .filter(outboundAuthFilter)
                                                        .filter(loggingFilter))
-                                        .uri(gateway.getOutbound().getUrl()));
+                                        .uri(gateway.getOutbound().getBaseUrl()));
         }
 
         return routes.build();
