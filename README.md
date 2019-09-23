@@ -19,17 +19,18 @@ Thus, Gatekeeper solves the following cross-cutting concerns:
 
 ## Current Capabilities
 
-At present Gatekeeper is able to use a statically configured whitelist for making authorization decisions about a
-statically configured resource server. Gatekeeper uses http basic auth to authenticate itself with the resource server.
+Supports deploy-time configured access control lists that can be used to support:
+* Access for anonymous users
+* Access for authenticated users
+* Access for authorized users
 
-Gatekeeper routes between three (configurable) endpoints:
-* `$PATH -> /public/$PATH` for anonymous requests.
-* `$PATH -> /registered/$PATH` for authenticated but unauthorized requests.
-* `$PATH -> /protected/$PATH` for authenticated and authorized requests.
+Requests are directed to different sub-paths of a base URI depending in which
+step of the ACL they fail.
 
-Authorization is based on claims in the JWT token presented to the gatekeeper.
-By default the gatekeeper matches emails in the token to a whitelist. It can
-also be configured to match a list of required scopes.
+See the [application.yml](src/main/resources/application.yml) comments for details.
+
+See the [authorizer package](src/main/java/com/dnastack/gatekeeper/authorizer) for
+currently available authorizers.
 
 ## Running and Deploying
 
@@ -120,14 +121,14 @@ You can copy the tokens and use [jwt.io](https://jwt.io) to see their contents.
 
 ```bash
 curl --request GET \
-  --url http://localhost:8082/beacon/foo
+  --url http://localhost:8082/api/foo
 ```
 
 ##### Authenticated but Unauthorized
 
 ```bash
 curl --request GET \
-  --url http://localhost:8082/beacon/foo \
+  --url http://localhost:8082/api/foo \
   --header 'authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJnYXRla2VlcGVyIiwic3ViIjoidXNlciIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MSIsImF6cCI6ImNsaWVudCIsInNjb3BlIjpbIm9wZW5pZCJdLCJleHAiOiI0MTAyNDQ0ODAwIiwianRpIjoidG9rZW4taWQifQ.vnlvQYKqRSQwoB-5woqi6jDojYZm1tI2Y7JTcn82Nh5iAsgaNSc52v6Zr0kI-OLBzTmJhZM76JxyH-t1SoPyS79BffEPiflYX7DxQVKACbnesChASv9P9CZNO0kxhdeBupiHbC_OM9NzdibHmeeGp_f_eS8yYRW0YZ2W0rTfsJYig0q4G2sFqHDAHZE3XhozVotsRhUiOcYI-oK5W1vYBpN9vzhFnFCOSM6B9QqKg3m-fdW89V_qH3EpK2lciu9DPvgo6ZA3jRlzUHLoxue-QdiTu11Vl7l4U3RcBylqgzhoSOsJqyVSpoAdfeJYr268ilpPUaDfRKX12sY8pgVj6Q'
 ```
 
@@ -135,7 +136,7 @@ curl --request GET \
 
 ```bash
 curl --request GET \
-  --url http://localhost:8082/beacon/foo \
+  --url http://localhost:8082/api/foo \
   --header 'authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJnYXRla2VlcGVyIiwic3ViIjoidXNlciIsImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MSIsImF6cCI6ImNsaWVudCIsInNjb3BlIjpbIm9wZW5pZCJdLCJnYTRnaCI6eyJDb250cm9sbGVkQWNjZXNzR3JhbnRzIjpbeyJ2YWx1ZSI6Imh0dHBzOi8vY29mZmVlLmJlYW4iLCJzb3VyY2UiOiJodHRwOi8vbG9jYWxob3N0OjgwODEiLCJieSI6ImRhYyJ9XX0sImV4cCI6IjQxMDI0NDQ4MDAiLCJqdGkiOiJ0b2tlbi1pZCJ9.iko_cYJuc7SVHmPTgqir2Zj16GAQz7SjJ2_c-Ygq7-OjtgAJNsyylH7Nz7A__qPVNKiH2i3vmLlJ-O51CLRiCESuQxfivE-KLJbqSt27ShZnvrsSDKrlIGbw-DT9Mnm1nOKdU1dFFJ9YkpXD_grQMN2EXjUjabnJCoJmp1VwCDzDHAaqhILWaF6iN5queV9hEDHLamR4oRDVNzI2fJadK5KGXI1vhMchha-bRzzXuxWgxzM2o1EbZbZ8LzR3lvRQNPLf-2LTRDrT8p-hNUZfw3gDmBelnWc7NotnBpMFdRYE8fSLmIWlYPzWpQWytaIIlbNXlspxV4A8X3Vjastz6w'
 ```
 
@@ -146,6 +147,5 @@ environment variables that you may want to set:
 
 * `INBOUND_JWT_0_ISSUER` - the issuer url associated with the public key signing inbound JWTs
 * `INBOUND_JWT_0_PUBLIC_KEY` - the PEM-formatted public key of the Wallet server this Gatekeeper will trust
-* `GATEKEEPER_BEACONSERVER_URL` - the URL of the beacon server being protected (proxied)
 * see [application.yml](src/main/resources/application.yml) for more
 
