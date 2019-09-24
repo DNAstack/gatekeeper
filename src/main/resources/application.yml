@@ -274,6 +274,13 @@ gatekeeper:
     url: http://httpbin.org/anything/
     registered-prefix: registered
     controlled-prefix: protected
+  token:
+    authorization:
+      method: ga4gh-controlled-access-grant-authorizer
+      scopes: controlled
+      controlled-access-grant:
+        value: "https://coffee.bean"
+        source: "http://localhost:8081"
   # Need these to properly resolve config values in gateway configuration (only resolves when variable is whole value)
   internal:
     metadataServer:
