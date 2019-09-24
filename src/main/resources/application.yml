@@ -236,10 +236,12 @@ gatekeeper:
             path: ${gatekeeper.internal.beaconServer.registered-prefix}
         - id: controlled
           authorization:
-            method: ga4gh-controlled-access-grant-authorizer
+            method: ${gatekeeper.token.authorization.method}
             args:
-              value: "https://coffee.bean"
-              source: "http://localhost:8081"
+              # Merge args for scope and ga4gh CAG authorization so it can easily be toggled below
+              value: ${gatekeeper.token.authorization.controlled-access-grant.value}
+              source: ${gatekeeper.token.authorization.controlled-access-grant.source}
+              scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.internal.beaconServer.controlled-prefix}
       auth-challenge: NonInteractive
@@ -256,10 +258,12 @@ gatekeeper:
       acl:
         - id: controlled
           authorization:
-            method: ga4gh-controlled-access-grant-authorizer
+            method: ${gatekeeper.token.authorization.method}
             args:
-              value: "https://coffee.bean"
-              source: "http://localhost:8081"
+              # Merge args for scope and ga4gh CAG authorization so it can easily be toggled below
+              value: ${gatekeeper.token.authorization.controlled-access-grant.value}
+              source: ${gatekeeper.token.authorization.controlled-access-grant.source}
+              scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.internal.metadataServer.controlled-prefix}
       auth-challenge: LoginRedirect
