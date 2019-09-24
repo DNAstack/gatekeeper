@@ -68,43 +68,6 @@ public class TokenE2eTest extends BaseE2eTest {
     }
 
     @Test
-    public void metadataEndpointRejectsExpiredTokens() {
-        final String token = jwtBuilder.setExpiration(new Date(Instant.now().minusMillis(1000).toEpochMilli()))
-                                       .compact();
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .header("Authorization", "Bearer " + token)
-                .get("/metadata/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(isStatus3xx())
-                .header("location", containsString("/api/identity/login"));
-        //@formatter:on
-    }
-
-    @Test
-    public void beaconEndpointRejectsExpiredTokens() {
-        final String token = jwtBuilder.setExpiration(new Date(Instant.now().minusMillis(1000).toEpochMilli()))
-                                       .compact();
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .header("Authorization", "Bearer " + token)
-                .get("/beacon/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(401);
-        //@formatter:on
-    }
-
-    @Test
     public void loginEndpointRejectsExpiredTokens() {
         final String token = jwtBuilder.setExpiration(new Date(Instant.now().minusMillis(1000).toEpochMilli()))
                                        .compact();
@@ -124,41 +87,6 @@ public class TokenE2eTest extends BaseE2eTest {
     }
 
     @Test
-    public void metadataEndpointRejectsMalformedTokens() {
-        final String token = "definitelyNotAToken";
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .header("Authorization", "Bearer " + token)
-                .get("/metadata/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(isStatus3xx())
-                .header("location", containsString("/api/identity/login"));
-        //@formatter:on
-    }
-
-    @Test
-    public void beaconEndpointRejectsMalformedTokens() {
-        final String token = "definitelyNotAToken";
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .header("Authorization", "Bearer " + token)
-                .get("/beacon/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(401);
-        //@formatter:on
-    }
-
-    @Test
     public void loginEndpointRejectsMalformedTokens() {
         final String token = "definitelyNotAToken";
         //@formatter:off
@@ -173,45 +101,6 @@ public class TokenE2eTest extends BaseE2eTest {
                 .log().ifValidationFails()
                 .statusCode(isStatus3xx())
                 .header("location", not(containsString("/api/identity/login")));
-        //@formatter:on
-    }
-
-    @Test
-    public void metadataEndpointRejectsDeveloperKeySignedTokens() {
-        final String token = jwtBuilder.signWith(RsaKeyHelper.parsePrivateKey(developmentPrivateKey))
-                                       .setExpiration(new Date(Instant.now().plusMillis(10000).toEpochMilli()))
-                                       .compact();
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .header("Authorization", "Bearer " + token)
-                .get("/metadata/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(isStatus3xx())
-                .header("location", containsString("/api/identity/login"));
-        //@formatter:on
-    }
-
-    @Test
-    public void beaconEndpointRejectsDeveloperKeySignedTokens() {
-        final String token = jwtBuilder.signWith(RsaKeyHelper.parsePrivateKey(developmentPrivateKey))
-                                       .setExpiration(new Date(Instant.now().plusMillis(10000).toEpochMilli()))
-                                       .compact();
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .header("Authorization", "Bearer " + token)
-                .get("/beacon/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(401);
         //@formatter:on
     }
 
