@@ -179,10 +179,12 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
      * Converts patterns like /foo/{bar}/{baz} to paths based on bound variables from Spring Cloud Gateway Path Route Predicate Factory.
      */
     static String computeOutboundPath(GatekeeperConfig.Gateway config, GatekeeperConfig.AccessControlItem accessControlItem, Map<String, String> boundVariables) {
-        final String outboundExpression = Optional.ofNullable(accessControlItem)
+        final String outboundExpression = Optional.of(accessControlItem)
                                                   .map(GatekeeperConfig.AccessControlItem::getOutbound)
-                                                  .map(GatekeeperConfig.OutboundRequest::getPath)
-                                                  .orElseGet(() -> config.getOutbound().getPath());
+                                                  .map(GatekeeperConfig.OutboundRequestConfig::getPath)
+                                                  .orElseThrow(() -> new IllegalArgumentException(format("gateway/acl item [%s/%s] is missing outbound path",
+                                                                                                         config.getId(),
+                                                                                                         accessControlItem.getId())));
         final Matcher pathVariableMatcher = PATH_VARIABLE_PATTERN.matcher(outboundExpression);
         final StringBuilder sb = new StringBuilder();
         while (pathVariableMatcher.find()) {

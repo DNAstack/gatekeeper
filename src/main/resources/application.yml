@@ -20,6 +20,9 @@ gatekeeper:
         # Base url for this route. All outbound requests are based off of this url.
         # The path of this url is kept as the context path. All outbound requests will be on subpaths.
         base-url: http://httpbin.org/anything/
+        # You can configure custom filters for a route using the spring cloud gateway dsl
+        filters:
+          - AddRequestHeader=X-Request-Foo, Bar
       # An Access Control List. Evaluated in order. The last successful access level is used.
       # The first failed request can give hints that are sent as response headers.
       # This ACL supports public, registered, and controlled access levels.
