@@ -28,8 +28,12 @@ public class JwtConfiguration {
         Optional<JwtParser> apply(String issuer);
     }
 
-    @Autowired
     private InboundConfiguration inboundConfiguration;
+
+    @Autowired
+    public JwtConfiguration(InboundConfiguration inboundConfiguration) {
+        this.inboundConfiguration = inboundConfiguration;
+    }
 
     @Bean
     public ParserProvider jwtParser() {

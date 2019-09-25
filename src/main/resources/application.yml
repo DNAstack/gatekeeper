@@ -115,6 +115,7 @@ inbound:
         40X5kGJHax0ZU2KeaVAl8qrJSE7cOiv6TxnIcBJ00isVdLggzz72xK5R9R1e9MEO
         DQIDAQAB
         -----END PUBLIC KEY-----
+
 ---
 spring:
   profiles: debug
@@ -124,6 +125,11 @@ logging:
 
     # set to DEBUG to log inbound and outbound HTTP headers
     com.dnastack.gatekeeper.logging.LoggingWebFilter: DEBUG
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.http.server.reactive: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.ipc.netty: DEBUG
+    reactor.netty: DEBUG
 ---
 spring:
   profiles: all-access-beacon
