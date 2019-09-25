@@ -3,7 +3,7 @@ package com.dnastack.gatekeeper.authorizer;
 import com.dnastack.gatekeeper.config.TokenAuthorizationConfig;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 
@@ -14,7 +14,6 @@ import static java.lang.String.format;
 /**
  * @param <T> GrantConfig type.
  */
-@Slf4j
 public abstract class TokenAuthorizerFactory<T> {
 
     public static class ConfigException extends RuntimeException {
@@ -24,9 +23,11 @@ public abstract class TokenAuthorizerFactory<T> {
     }
 
     protected final ObjectMapper objectMapper;
+    private final Logger log;
 
-    protected TokenAuthorizerFactory(ObjectMapper objectMapper) {
+    protected TokenAuthorizerFactory(ObjectMapper objectMapper, Logger log) {
         this.objectMapper = objectMapper;
+        this.log = log;
     }
 
     /**

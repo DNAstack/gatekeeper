@@ -79,12 +79,13 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
         return valueMatches && sourceMatches && byMatches && temporallyValid;
     }
 
+    @Slf4j
     @Component("ga4gh-controlled-access-grant-authorizer")
     public static class ScopeTokenAuthorizerFactory extends TokenAuthorizerFactory<GrantConfig> {
 
         @Autowired
         public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {
-            super(objectMapper);
+            super(objectMapper, log);
         }
 
         @Override

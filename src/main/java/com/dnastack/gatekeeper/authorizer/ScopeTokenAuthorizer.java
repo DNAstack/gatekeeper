@@ -71,12 +71,13 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
         }
     }
 
+    @Slf4j
     @Component("scope-authorizer")
     public static class ScopeTokenAuthorizerFactory extends TokenAuthorizerFactory<ScopeTokenAuthorizerFactory.Config> {
 
         @Autowired
         public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {
-            super(objectMapper);
+            super(objectMapper, log);
         }
 
         @Override

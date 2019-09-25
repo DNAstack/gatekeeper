@@ -73,12 +73,13 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
                 .flatMap(this::accountEmail);
     }
 
+    @Slf4j
     @Component("email-authorizer")
     public static class EmailTokenAuthorizerFactory extends TokenAuthorizerFactory<EmailTokenAuthorizerFactory.Config> {
 
         @Autowired
         public EmailTokenAuthorizerFactory(ObjectMapper objectMapper) {
-            super(objectMapper);
+            super(objectMapper, log);
         }
 
         @Override

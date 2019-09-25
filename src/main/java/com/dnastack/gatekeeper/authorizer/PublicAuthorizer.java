@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -31,12 +32,13 @@ public class PublicAuthorizer implements TokenAuthorizer {
         return handleNoToken();
     }
 
+    @Slf4j
     @Component("public-authorizer")
     public static class PublicAuthorizerFactory extends TokenAuthorizerFactory<Object> {
 
         @Autowired
         public PublicAuthorizerFactory(ObjectMapper objectMapper) {
-            super(objectMapper);
+            super(objectMapper, log);
         }
 
         @Override
