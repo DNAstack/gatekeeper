@@ -227,6 +227,41 @@ gatekeeper:
       controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}/{path}
 ---
 spring:
+  profiles: hostpreserving-sidecar
+  cloud:
+    gateway:
+      x-forwarded:
+        proto-enabled: false
+        port-enabled: false
+        host-enabled: false
+gatekeeper:
+  gateways:
+    - id: hostpreserving-sidecar
+      inbound:
+        path: /{*path}
+      outbound:
+        base-url: ${gatekeeper.outbound.url}
+        filters:
+          - PreserveHostHeader
+      acl:
+        - id: controlled
+          authorization:
+            method: ${gatekeeper.token.authorization.method}
+            args:
+              scopes: ${gatekeeper.token.authorization.scopes}
+          outbound:
+            path: ${gatekeeper.outbound.path-prefix}/{path}
+      auth-challenge: NonInteractive
+  outbound:
+    url: "http://localhost:8081"
+    path-prefix: ""
+  token:
+    authorization:
+      method: scope-authorizer
+      scopes: controlled
+
+---
+spring:
   profiles: registered-beacon-with-controlled-metadata
 gatekeeper:
   gateways:
