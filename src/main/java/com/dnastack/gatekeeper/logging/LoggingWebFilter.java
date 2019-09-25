@@ -65,7 +65,7 @@ public class LoggingWebFilter implements WebFilter, Ordered {
 
     private void logTermination(long startTime) {
         final long elapsedTime = System.currentTimeMillis() - startTime;
-        log.debug("<<< Chain filter mono terminated in {}ms", elapsedTime);
+        log.info("<<< Chain filter mono terminated in {}ms", elapsedTime);
     }
 
     private void logError(Throwable error, long startTime) {
