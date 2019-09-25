@@ -157,6 +157,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         setAccessDecisionHints(response, authHints);
 
         if (!accessDecision.isAllowed() || isInvalidCredential(authHints)) {
+            log.debug("Not responding with content for values [allowed={}], [authHints={}]", accessDecision.isAllowed(), authHints);
             if (shouldDoAuthenticationChallenge(authHints)) {
                 return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
             } else {

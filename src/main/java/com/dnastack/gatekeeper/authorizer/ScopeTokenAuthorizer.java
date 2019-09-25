@@ -62,10 +62,12 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
         if (authTokenScopesSet.containsAll(requiredScopesSet)) {
             return AuthorizationDecision.builder()
+                                        .allowed(true)
                                         .decisionInfo(StandardDecisions.ACCESS_GRANTED)
                                         .build();
         } else {
             return AuthorizationDecision.builder()
+                                        .allowed(false)
                                         .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
                                         .build();
         }

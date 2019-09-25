@@ -117,6 +117,15 @@ inbound:
         -----END PUBLIC KEY-----
 ---
 spring:
+  profiles: debug
+logging:
+  level:
+    com.dnastack: DEBUG
+
+    # set to DEBUG to log inbound and outbound HTTP headers
+    com.dnastack.gatekeeper.logging.LoggingWebFilter: DEBUG
+---
+spring:
   profiles: all-access-beacon
 gatekeeper:
   gateways:
