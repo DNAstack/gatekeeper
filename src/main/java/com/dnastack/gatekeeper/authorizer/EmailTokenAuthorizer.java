@@ -1,6 +1,7 @@
 package com.dnastack.gatekeeper.authorizer;
 
 import com.dnastack.gatekeeper.config.Account;
+import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -75,7 +76,7 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
 
     @Slf4j
     @Component("email-authorizer")
-    public static class EmailTokenAuthorizerFactory extends TokenAuthorizerFactory<EmailTokenAuthorizerFactory.Config> {
+    public static class EmailTokenAuthorizerFactory extends JsonDefinedFactory<EmailTokenAuthorizerFactory.Config, TokenAuthorizer> {
 
         @Autowired
         public EmailTokenAuthorizerFactory(ObjectMapper objectMapper) {

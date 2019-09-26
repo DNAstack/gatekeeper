@@ -1,5 +1,6 @@
 package com.dnastack.gatekeeper.authorizer;
 
+import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,7 +82,7 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
 
     @Slf4j
     @Component("ga4gh-controlled-access-grant-authorizer")
-    public static class ScopeTokenAuthorizerFactory extends TokenAuthorizerFactory<GrantConfig> {
+    public static class ScopeTokenAuthorizerFactory extends JsonDefinedFactory<GrantConfig, TokenAuthorizer> {
 
         @Autowired
         public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {

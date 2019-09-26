@@ -85,6 +85,34 @@ gatekeeper:
             path: protected/{path}
       # Since this route is meant for frontend applications, it redirects users to an auth server configured below.
       auth-challenge: LoginRedirect
+    # For `/noop/**` route. Maps:
+    # * Authorized requests to ${BASE_URL}/** with no side-effects.
+    # Other routes above strip auth headers. This route uses an outbound handler that perserves the authorization header.
+    - id: noop
+      inbound:
+        # The `{*path}` expression matches all remaining path segments and is stored in a request context.
+        # It can be referenced from the outbound paths below.
+        # See the documentation of org.springframework.web.util.pattern.PathPattern for what can be used here.
+        path: /noop/{*path}
+      outbound:
+        # Base url for this route. All outbound requests are based off of this url.
+        # The path of this url is kept as the context path. All outbound requests will be on subpaths.
+        base-url: http://httpbin.org/anything/
+        authentication:
+          # Does not strip auth header
+          method: preserve-authorization-client-authenticator
+      # An Access Control List. Evaluated in order. The last successful access level is used.
+      # The first failed request can give hints that are sent as response headers.
+      # This ACL only supports controlled access requests. All other requests receive an auth-challenge.
+      acl:
+        - id: public
+          authorization:
+            # Public authorizer accepts all inbound requests
+            method: public-authorizer
+          outbound:
+            # Uses path variable from inbound path expression
+            path: /noop/{path}
+
   auth-server:
     authorize-url: http://localhost:8081/oauth/authorize
     token-url: http://localhost:8081/oauth/token

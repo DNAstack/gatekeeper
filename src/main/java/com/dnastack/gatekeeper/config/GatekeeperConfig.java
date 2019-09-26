@@ -10,6 +10,7 @@ import org.springframework.cloud.gateway.filter.FilterDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @ConfigurationProperties("gatekeeper")
@@ -60,19 +61,7 @@ public class GatekeeperConfig {
 
     @Data
     public static class OutboundAuthentication {
-        /**
-         * Currently only basic-auth-client-authenticator is valid.
-         */
         private String method;
-        /**
-         * Currently only basic auth is supported.
-         */
-        private UsernamePasswordArgs args;
-    }
-
-    @Data
-    public static class UsernamePasswordArgs {
-        private String username;
-        private String password;
+        private Map<String, Object> args;
     }
 }

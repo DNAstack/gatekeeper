@@ -7,6 +7,8 @@ import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.LoginRedirectAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.NonInteractiveAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.config.GatekeeperConfig;
+import com.dnastack.gatekeeper.config.JsonDefinedFactory;
+import com.dnastack.gatekeeper.config.TokenAuthorizationConfig;
 import com.dnastack.gatekeeper.token.TokenParser;
 import com.dnastack.gatekeeper.util.TokenUtil;
 import com.dnastack.gatekeeper.util.WebFluxUtil;
@@ -33,7 +35,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.dnastack.gatekeeper.authorizer.TokenAuthorizerFactory.createTokenAuthorizer;
 import static java.lang.String.format;
 
 @Component
@@ -74,10 +75,15 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         final Map<String, TokenAuthorizer> authorizersByAclItemId =
                 config.getAcl()
                       .stream()
-                      .map(accessControlItem -> Map.entry(accessControlItem.getId(), createTokenAuthorizer(beanFactory, accessControlItem.getAuthorization())))
+                      .map(accessControlItem -> Map.entry(accessControlItem.getId(), createTokenAuthorizer(accessControlItem.getAuthorization())))
                       .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue));
         final AuthenticationChallengeHandler authenticationChallengeHandler = createUnauthenticatedTokenHandler(config);
         return (exchange, chain) -> doFilter(config, authorizersByAclItemId, authenticationChallengeHandler, exchange, chain);
+    }
+
+    private TokenAuthorizer createTokenAuthorizer(TokenAuthorizationConfig config) {
+        final JsonDefinedFactory<?, TokenAuthorizer> factory = JsonDefinedFactory.lookupFactory(beanFactory, config.getMethod());
+        return factory.create(config.getArgs());
     }
 
     private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(GatekeeperConfig.Gateway config) {

@@ -1,5 +1,6 @@
 package com.dnastack.gatekeeper.authorizer;
 
+import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
@@ -75,7 +76,7 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
     @Slf4j
     @Component("scope-authorizer")
-    public static class ScopeTokenAuthorizerFactory extends TokenAuthorizerFactory<ScopeTokenAuthorizerFactory.Config> {
+    public static class ScopeTokenAuthorizerFactory extends JsonDefinedFactory<ScopeTokenAuthorizerFactory.Config, TokenAuthorizer> {
 
         @Autowired
         public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {

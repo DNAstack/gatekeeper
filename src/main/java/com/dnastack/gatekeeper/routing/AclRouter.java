@@ -2,12 +2,13 @@ package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.acl.GatekeeperGatewayFilterFactory;
 import com.dnastack.gatekeeper.config.GatekeeperConfig;
-import com.dnastack.gatekeeper.gateway.AddBasicAuthHeaderGatewayFilterFactory;
+import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.dnastack.gatekeeper.gateway.FilterDefinitionLoader;
 import com.dnastack.gatekeeper.gateway.PrependUriPathGatewayFilterFactory;
 import com.dnastack.gatekeeper.gateway.StripAuthHeaderGatewayFilterFactory;
 import com.dnastack.gatekeeper.logging.LoggingGatewayFilterFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.route.RouteLocator;
@@ -17,8 +18,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-import static java.lang.String.format;
+import static com.dnastack.gatekeeper.config.JsonDefinedFactory.lookupFactory;
 
 @Slf4j
 @Configuration
@@ -27,11 +30,13 @@ public class AclRouter {
 
     private final GatekeeperConfig config;
     private final FilterDefinitionLoader filterDefinitionLoader;
+    private BeanFactory beanFactory;
 
     @Autowired
-    public AclRouter(GatekeeperConfig config, FilterDefinitionLoader filterDefinitionLoader) {
+    public AclRouter(GatekeeperConfig config, FilterDefinitionLoader filterDefinitionLoader, BeanFactory beanFactory) {
         this.config = config;
         this.filterDefinitionLoader = filterDefinitionLoader;
+        this.beanFactory = beanFactory;
     }
 
     @Bean
@@ -39,7 +44,6 @@ public class AclRouter {
                                         GatekeeperGatewayFilterFactory gatekeeperGatewayFilterFactory,
                                         PrependUriPathGatewayFilterFactory prependUriPathGatewayFilterFactory,
                                         StripAuthHeaderGatewayFilterFactory stripAuthHeaderGatewayFilterFactory,
-                                        AddBasicAuthHeaderGatewayFilterFactory addBasicAuthHeaderGatewayFilterFactory,
                                         LoggingGatewayFilterFactory loggingGatewayFilterFactory) {
         final GatewayFilter stripAuthHeaderFilter = stripAuthHeaderGatewayFilterFactory.apply(new Object());
         final GatewayFilter loggingFilter = loggingGatewayFilterFactory.apply();
@@ -48,18 +52,16 @@ public class AclRouter {
 
         for (GatekeeperConfig.Gateway gateway : config.getGateways()) {
             final GatewayFilter prependUriFilter = prependUriPathGatewayFilterFactory.apply(gateway.getOutbound().getBaseUrl());
+
             final GatekeeperConfig.OutboundAuthentication outboundAuthentication = gateway.getOutbound().getAuthentication();
-            final GatewayFilter outboundAuthFilter;
-            if (outboundAuthentication == null) {
-                outboundAuthFilter = ((exchange, chain) -> chain.filter(exchange));
-            }
-            else if ("basic-auth-client-authenticator".equals(outboundAuthentication.getMethod())) {
-                final String username = outboundAuthentication.getArgs().getUsername();
-                final String password = outboundAuthentication.getArgs().getPassword();
-                outboundAuthFilter = addBasicAuthHeaderGatewayFilterFactory.apply(username, password);
-            } else {
-                throw new IllegalArgumentException(format("Unsupported outbound authenticator [%s]", outboundAuthentication.getMethod()));
-            }
+            final String authenticatorName = Optional.ofNullable(outboundAuthentication)
+                                                     .map(GatekeeperConfig.OutboundAuthentication::getMethod)
+                                                     .orElse("noop-client-authenticator");
+            final JsonDefinedFactory<?, GatewayFilter> clientAuthenticatorFactory = lookupFactory(beanFactory, authenticatorName);
+            final Map<String, Object> args = Optional.ofNullable(outboundAuthentication)
+                                                     .map(GatekeeperConfig.OutboundAuthentication::getArgs)
+                                                     .orElseGet(Map::of);
+            final GatewayFilter outboundAuthFilter = clientAuthenticatorFactory.create(args);
 
             final GatewayFilter gatekeeperFilter = gatekeeperGatewayFilterFactory.apply(gateway);
             final List<GatewayFilter> customFilters = filterDefinitionLoader.loadFilters(gateway.getId(), gateway.getOutbound().getFilters());
