@@ -36,48 +36,50 @@ import static org.springframework.util.CollectionUtils.unmodifiableMultiValueMap
 /*
  * Taken from Spring Cloud Gateway repo. Remove this when the new version containing this filter is released (>2.1.8)
  */
+
 /**
  * @author Thirunavukkarasu Ravichandran
  */
 @Component
 public class RemoveRequestParameterGatewayFilterFactory
-		extends AbstractGatewayFilterFactory<AbstractGatewayFilterFactory.NameConfig> {
+        extends AbstractGatewayFilterFactory<AbstractGatewayFilterFactory.NameConfig> {
 
-	public RemoveRequestParameterGatewayFilterFactory() {
-		super(NameConfig.class);
-	}
+    public RemoveRequestParameterGatewayFilterFactory() {
+        super(NameConfig.class);
+    }
 
-	@Override
-	public List<String> shortcutFieldOrder() {
-		return Arrays.asList(NAME_KEY);
-	}
+    @Override
+    public List<String> shortcutFieldOrder() {
+        return Arrays.asList(NAME_KEY);
+    }
 
-	@Override
-	public GatewayFilter apply(NameConfig config) {
-		return new GatewayFilter() {
-			@Override
-			public Mono<Void> filter(ServerWebExchange exchange,
-					GatewayFilterChain chain) {
-				ServerHttpRequest request = exchange.getRequest();
-				MultiValueMap<String, String> queryParams = new LinkedMultiValueMap<>(
-						request.getQueryParams());
-				queryParams.remove(config.getName());
+    @Override
+    public GatewayFilter apply(NameConfig config) {
+        return new GatewayFilter() {
+            @Override
+            public Mono<Void> filter(ServerWebExchange exchange,
+                                     GatewayFilterChain chain) {
+                ServerHttpRequest request = exchange.getRequest();
+                MultiValueMap<String, String> queryParams = new LinkedMultiValueMap<>(
+                        request.getQueryParams());
+                queryParams.remove(config.getName());
 
-				URI newUri = UriComponentsBuilder.fromUri(request.getURI())
-						.replaceQueryParams(unmodifiableMultiValueMap(queryParams))
-						.build(true).toUri();
+                URI newUri = UriComponentsBuilder.fromUri(request.getURI())
+                                                 .replaceQueryParams(unmodifiableMultiValueMap(queryParams))
+                                                 .build(false)
+                                                 .toUri();
 
-				ServerHttpRequest updatedRequest = exchange.getRequest().mutate()
-						.uri(newUri).build();
+                ServerHttpRequest updatedRequest = exchange.getRequest().mutate()
+                                                           .uri(newUri).build();
 
-				return chain.filter(exchange.mutate().request(updatedRequest).build());
-			}
+                return chain.filter(exchange.mutate().request(updatedRequest).build());
+            }
 
-			@Override
-			public String toString() {
-				return RemoveRequestParameterGatewayFilterFactory.class.getSimpleName() + "[config=" + config + "]";
-			}
-		};
-	}
+            @Override
+            public String toString() {
+                return RemoveRequestParameterGatewayFilterFactory.class.getSimpleName() + "[config=" + config + "]";
+            }
+        };
+    }
 
 }
