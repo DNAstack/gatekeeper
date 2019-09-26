@@ -21,8 +21,6 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
@@ -30,8 +28,6 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-
-import static org.springframework.util.CollectionUtils.unmodifiableMultiValueMap;
 
 /*
  * Taken from Spring Cloud Gateway repo. Remove this when the new version containing this filter is released (>2.1.8)
@@ -60,13 +56,13 @@ public class RemoveRequestParameterGatewayFilterFactory
             public Mono<Void> filter(ServerWebExchange exchange,
                                      GatewayFilterChain chain) {
                 ServerHttpRequest request = exchange.getRequest();
-                MultiValueMap<String, String> queryParams = new LinkedMultiValueMap<>(
-                        request.getQueryParams());
-                queryParams.remove(config.getName());
 
+                // Fixed a bug here. It used to replace all query params, which would break encoding.
+                // Now we take advantage of the documented API where replacing a query param
+                // with no values removes it.
                 URI newUri = UriComponentsBuilder.fromUri(request.getURI())
-                                                 .replaceQueryParams(unmodifiableMultiValueMap(queryParams))
-                                                 .build(false)
+                                                 .replaceQueryParam(config.getName())
+                                                 .build(true)
                                                  .toUri();
 
                 ServerHttpRequest updatedRequest = exchange.getRequest().mutate()
