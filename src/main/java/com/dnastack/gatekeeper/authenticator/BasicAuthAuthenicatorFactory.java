@@ -11,7 +11,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.stereotype.Component;
 
 @Slf4j
-@Component("basic-authenticator-client-authenticator")
+@Component("basic-auth-client-authenticator")
 public class BasicAuthAuthenicatorFactory extends JsonDefinedFactory<BasicAuthAuthenicatorFactory.Config, GatewayFilter> {
 
     private final AddBasicAuthHeaderGatewayFilterFactory delegate;
