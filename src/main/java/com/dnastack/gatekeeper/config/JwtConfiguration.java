@@ -1,32 +1,20 @@
 package com.dnastack.gatekeeper.config;
 
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.Charset;
+import java.security.Key;
 import java.security.PublicKey;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Objects;
+
+import static java.lang.String.format;
 
 @Configuration
 public class JwtConfiguration {
-
-    /**
-     * A function mapping issuers to JwtParsers configured to validate signatures from that issuer.
-     */
-    @FunctionalInterface
-    public interface ParserProvider extends Function<String, Optional<JwtParser>> {
-        /**
-         * @param issuer An issuer url. Never null.
-         * @return A JwtParser configured for the given issuer.
-         */
-        @Override
-        Optional<JwtParser> apply(String issuer);
-    }
 
     private InboundConfiguration inboundConfiguration;
 
@@ -36,22 +24,31 @@ public class JwtConfiguration {
     }
 
     @Bean
-    public ParserProvider jwtParser() {
-        final Map<String, InboundConfiguration.IssuerConfig> configsByIssuer =
-                inboundConfiguration.getJwt()
-                                    .stream()
-                                    .collect(Collectors.toMap(InboundConfiguration.IssuerConfig::getIssuer,
-                                                              Function.identity()));
-        return issuer -> Optional.ofNullable(configsByIssuer.get(issuer))
-                                 .map(this::createParser);
+    public JwtParser jwtParser() {
+        return Jwts.parser()
+                   .setSigningKeyResolver(resolver());
     }
 
-    private JwtParser createParser(InboundConfiguration.IssuerConfig issuerConfig) {
+    private SigningKeyResolver resolver() {
+        return new SigningKeyResolverAdapter() {
+            @Override
+            public Key resolveSigningKey(JwsHeader header, Claims claims) {
+                final InboundConfiguration.IssuerConfig issuerConfig = inboundConfiguration.getJwt()
+                                                                                           .stream()
+                                                                                           .filter(ic -> Objects.equals(ic.getIssuer(), claims.getIssuer()))
+                                                                                           .findFirst()
+                                                                                           .orElseThrow(() -> new JwtException(format("Unrecognized issuer [%s]", claims.getIssuer())));
+                return loadKey(issuerConfig);
+            }
+        };
+    }
+
+    private Key loadKey(InboundConfiguration.IssuerConfig issuerConfig) {
         if (issuerConfig.getAlgorithm().toLowerCase().startsWith("rs")) {
             final PublicKey publicKey = RsaKeyHelper.parsePublicKey(issuerConfig.getPublicKey());
-            return Jwts.parser().setSigningKey(publicKey);
+            return publicKey;
         } else {
-            return Jwts.parser().setSigningKey(issuerConfig.getPublicKey());
+            return new SecretKeySpec(issuerConfig.getPublicKey().getBytes(Charset.defaultCharset()), issuerConfig.getAlgorithm());
         }
     }
 

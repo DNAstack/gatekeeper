@@ -1,7 +1,5 @@
 package com.dnastack.gatekeeper.token;
 
-import com.dnastack.gatekeeper.acl.UnsafeBodyParser;
-import com.dnastack.gatekeeper.config.JwtConfiguration;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
@@ -21,17 +19,12 @@ import static java.lang.String.format;
 public class TokenParser {
 
     @Autowired
-    private JwtConfiguration.ParserProvider parserProvider;
+    private JwtParser jwtParser;
     // Can't default to empty list when we specify value in application.yml
     @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
     private List<String> acceptedAudiences;
-    @Autowired
-    private UnsafeBodyParser bodyParser;
 
     public Jws<Claims> parseAndValidateJws(String authToken) throws JwtException, IllegalArgumentException {
-        final String issuer = bodyParser.extractIssuerWithoutValidation(authToken);
-        final JwtParser jwtParser = parserProvider.apply(issuer)
-                                                  .orElseThrow(() -> new JwtException(format("Unrecognized issuer [%s]", issuer)));
         final Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
         if (acceptedAudiences.isEmpty()) {
             log.debug("Not validating token audience, because no audiences are configured.");
