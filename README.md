@@ -146,6 +146,7 @@ For a non-default configuration (a deployment or a local-to-cloud integration sc
 environment variables that you may want to set:
 
 * `INBOUND_JWT_0_ISSUER` - the issuer url associated with the public key signing inbound JWTs
-* `INBOUND_JWT_0_PUBLIC_KEY` - the PEM-formatted public key of the Wallet server this Gatekeeper will trust
+* `INBOUND_JWT_0_BEAN` - sets the method of loading a key for validation: use either `static-key` or `oidc-jwks`
+* `INBOUND_JWT_0_ARGS_PUBLICKEY` - when using `static-key` bean, the PEM-formatted public key of the Wallet server this Gatekeeper will trust
 * see [application.yml](src/main/resources/application.yml) for more
 

@@ -31,7 +31,7 @@ public class StaticKeyFactory extends JsonDefinedFactory<StaticKeyFactory.Config
 
     @Data
     public static class Config {
-        @JsonProperty("public-key")
+        @JsonProperty("publickey")
         private String publicKey;
     }
 }
