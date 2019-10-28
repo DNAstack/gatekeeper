@@ -1,10 +1,8 @@
 package com.dnastack.gatekeeper.authorizer;
 
-import com.dnastack.gatekeeper.config.GatekeeperConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import lombok.Builder;
-import lombok.Getter;
 import lombok.Singular;
 import lombok.Value;
 

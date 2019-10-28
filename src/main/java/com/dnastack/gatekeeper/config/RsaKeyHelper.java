@@ -143,7 +143,7 @@ public class RsaKeyHelper {
         }
     }
 
-    static RSAPublicKey createPublicKey(BigInteger n, BigInteger e) {
+    public static RSAPublicKey createPublicKey(BigInteger n, BigInteger e) {
         try {
             return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(n, e));
         } catch (Exception ex) {
