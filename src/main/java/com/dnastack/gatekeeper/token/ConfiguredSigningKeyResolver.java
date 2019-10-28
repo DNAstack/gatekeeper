@@ -51,7 +51,7 @@ public class ConfiguredSigningKeyResolver extends SigningKeyResolverAdapter {
     }
 
     private KeyResolver loadResolver(IssuerConfig issuerConfig) {
-        JsonDefinedFactory<?, KeyResolver> factory = lookupFactory(beanFactory, issuerConfig.getKeySource().getBean());
-        return factory.create(issuerConfig.getKeySource().getArgs());
+        JsonDefinedFactory<?, KeyResolver> factory = lookupFactory(beanFactory, issuerConfig.getBean());
+        return factory.create(issuerConfig.getArgs());
     }
 }
