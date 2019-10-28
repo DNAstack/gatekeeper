@@ -1,8 +1,7 @@
 package com.dnastack.gatekeeper;
 
-import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.restassured.RestAssured;
 import org.hamcrest.Matcher;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,7 +10,6 @@ import java.time.Instant;
 import java.util.Date;
 
 import static io.restassured.RestAssured.given;
-import static java.lang.String.format;
 import static org.hamcrest.Matchers.*;
 
 public class TokenE2eTest extends BaseE2eTest {
@@ -46,44 +44,10 @@ public class TokenE2eTest extends BaseE2eTest {
 
     private String developmentPrivateKey;
 
-    private JwtBuilder jwtBuilder;
-
     @Before
     public void setupJwt() {
-        final String alg = requiredEnv("E2E_SIGNING_ALG");
-        final String rawKey = requiredEnv("E2E_SIGNING_KEY");
         // Give option to override when running locally
         developmentPrivateKey = optionalEnv("E2E_DEVELOPMENT_KEY", DEVELOPMENT_PRIVATE_KEY);
-
-        if (alg.toLowerCase().startsWith("rs")) {
-            jwtBuilder = Jwts.builder()
-                             .signWith(RsaKeyHelper.parsePrivateKey(rawKey));
-        } else if (alg.toLowerCase().equals("hs256")) {
-            jwtBuilder = Jwts.builder()
-                             .signWith(SignatureAlgorithm.HS256, rawKey);
-        } else {
-            throw new IllegalArgumentException(format("Unrecognized signing algorithm [%s]", alg));
-        }
-
-    }
-
-    @Test
-    public void loginEndpointRejectsExpiredTokens() {
-        final String token = jwtBuilder.setExpiration(new Date(Instant.now().minusMillis(1000).toEpochMilli()))
-                                       .compact();
-        //@formatter:off
-        given()
-                .log().method()
-                .log().uri()
-                .redirects().follow(false)
-                .when()
-                .cookie("access_token", token)
-                .get("/api/identity/login?state=/metadata/path-that-almost-certainly-does-not-exist")
-                .then()
-                .log().ifValidationFails()
-                .statusCode(isStatus3xx())
-                .header("location", not(containsString("/api/identity/login")));
-        //@formatter:on
     }
 
     @Test
@@ -106,9 +70,11 @@ public class TokenE2eTest extends BaseE2eTest {
 
     @Test
     public void loginEndpointRejectsDeveloperKeySignedTokens() {
-        final String token = jwtBuilder.signWith(RsaKeyHelper.parsePrivateKey(developmentPrivateKey))
-                                       .setExpiration(new Date(Instant.now().plusMillis(10000).toEpochMilli()))
-                                       .compact();
+        final String token = Jwts.builder()
+                                 .setIssuer("http://localhost:8081")
+                                 .signWith(RsaKeyHelper.parsePrivateKey(developmentPrivateKey))
+                                 .setExpiration(new Date(Instant.now().plusMillis(10000).toEpochMilli()))
+                                 .compact();
         //@formatter:off
         given()
                 .log().method()
@@ -120,7 +86,7 @@ public class TokenE2eTest extends BaseE2eTest {
                 .then()
                 .log().ifValidationFails()
                 .statusCode(isStatus3xx())
-                .header("location", not(containsString("/api/identity/login")));
+                .header("location", not(startsWith(RestAssured.baseURI)));
         //@formatter:on
     }
 
