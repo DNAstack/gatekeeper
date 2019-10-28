@@ -12,11 +12,6 @@ public class InboundConfiguration {
     @Data
     public static class IssuerConfig {
         private String issuer;
-        private KeySource keySource;
-    }
-
-    @Data
-    public static class KeySource {
         private String bean;
         private Map<String, Object> args;
     }
