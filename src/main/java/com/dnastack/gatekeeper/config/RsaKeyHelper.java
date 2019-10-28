@@ -40,7 +40,7 @@ import org.bouncycastle.asn1.ASN1Sequence;
  *
  * @author Luke Taylor
  */
-class RsaKeyHelper {
+public class RsaKeyHelper {
 
     private static String BEGIN = "-----BEGIN";
     private static Pattern PEM_DATA = Pattern.compile("-----BEGIN (.*)-----(.*)-----END (.*)-----", Pattern.DOTALL);
@@ -95,7 +95,7 @@ class RsaKeyHelper {
 
     private static final Pattern SSH_PUB_KEY = Pattern.compile("ssh-(rsa|dsa) ([A-Za-z0-9/+]+=*) (.*)");
 
-    static RSAPublicKey parsePublicKey(String key) {
+    public static RSAPublicKey parsePublicKey(String key) {
         key = removeNewLines(key);
         Matcher m = SSH_PUB_KEY.matcher(key);
 

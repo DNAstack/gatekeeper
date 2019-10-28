@@ -5,8 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.Charset;
 import java.security.Key;
 import java.security.PublicKey;
 import java.util.Objects;
@@ -48,7 +46,7 @@ public class JwtConfiguration {
             final PublicKey publicKey = RsaKeyHelper.parsePublicKey(issuerConfig.getPublicKey());
             return publicKey;
         } else {
-            return new SecretKeySpec(issuerConfig.getPublicKey().getBytes(Charset.defaultCharset()), issuerConfig.getAlgorithm());
+            throw new IllegalArgumentException(format("Only RS* algorithms supported in gatekeeper: Given algorithm [%s]", issuerConfig.getAlgorithm()));
         }
     }
 
