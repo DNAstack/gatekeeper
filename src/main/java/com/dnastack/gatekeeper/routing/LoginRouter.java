@@ -69,8 +69,9 @@ public class LoginRouter {
             final String targetUri = format("%s?access_token=%s", getExternalPath(serverRequest, state), token);
             return temporaryRedirect(URI.create(targetUri)).build();
         } else {
-            final String fullAuthUrl = format("%s?response_type=code&client_id=%s&redirect_uri=%s&state=%s",
+            final String fullAuthUrl = format("%s?response_type=code&scope=%s&client_id=%s&redirect_uri=%s&state=%s",
                                               metadataServerAuthUrl,
+                                              "openid ga4gh_passport_v1",
                                               clientId,
                                               redirectUri(serverRequest),
                                               state);
@@ -125,7 +126,7 @@ public class LoginRouter {
 
     private Optional<String> extractToken(String body) {
         try {
-            return Optional.of(((JSONObject) new JSONParser().parse(body)).get("access_token").toString());
+            return Optional.of(((JSONObject) new JSONParser().parse(body)).get("id_token").toString());
         } catch (ParseException | NullPointerException e) {
             if (log.isDebugEnabled()) {
                 log.debug("Unable to parse token from payload. Payload: " + body, e);
