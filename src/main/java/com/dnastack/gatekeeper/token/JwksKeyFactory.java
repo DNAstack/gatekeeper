@@ -88,8 +88,8 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
                 }
 
                 final Base64.Decoder decoder = Base64.getUrlDecoder();
-                final BigInteger modulus = new BigInteger(decoder.decode(foundJwk.getModulus()));
-                final BigInteger publicExponent = new BigInteger(decoder.decode(foundJwk.getExponent()));
+                final BigInteger modulus = new BigInteger(1, decoder.decode(foundJwk.getModulus()));
+                final BigInteger publicExponent = new BigInteger(1, decoder.decode(foundJwk.getExponent()));
 
                 return RsaKeyHelper.createPublicKey(modulus, publicExponent);
             });
