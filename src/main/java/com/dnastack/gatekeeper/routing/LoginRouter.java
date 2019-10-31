@@ -71,7 +71,7 @@ public class LoginRouter {
         } else {
             final String fullAuthUrl = format("%s?response_type=code&scope=%s&client_id=%s&redirect_uri=%s&state=%s",
                                               metadataServerAuthUrl,
-                                              "openid ga4gh_passport_v1",
+                                              "openid+ga4gh_passport_v1",
                                               clientId,
                                               redirectUri(serverRequest),
                                               state);
