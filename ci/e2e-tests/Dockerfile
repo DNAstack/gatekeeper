@@ -7,8 +7,11 @@
 # This stage depends on a JDK image and uses Maven Wrapper to pull in dependencies and build the project
 # from source.
 FROM openjdk:11-jdk-slim AS build
+
+ENV MAVEN_OPTS "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 ARG APP_NAME
 ARG APP_VERSION
+
 WORKDIR /build
 
 # Before bringing in project sources, resolve maven dependencies.
@@ -30,13 +33,14 @@ RUN ./mvnw -B -o package -DskipTests=true
 # This stage uses a JRE rather than JDK because it doesn't have to compile any Java sources.
 # It is assembling the runnable test container and packaging all its Maven dependencies
 FROM openjdk:11-slim
-ARG APP_NAME
-ARG APP_VERSION
 
+ENV MAVEN_OPTS "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+
+COPY --from=0 /build/target/e2e-tests.jar /e2e-tests.jar
 ADD target/e2e-exec-pom.xml /pom.xml
 ADD target/.mvn /.mvn
 ADD target/mvnw /
-COPY --from=0 /build/target/e2e-tests.jar /e2e-tests.jar
+
 RUN ./mvnw -B de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
 
-ENTRYPOINT ["./mvnw", "-o", "test"]
+ENTRYPOINT ["./mvnw", "-B", "-o", "test"]
