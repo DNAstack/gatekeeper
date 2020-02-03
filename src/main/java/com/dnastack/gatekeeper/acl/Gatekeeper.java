@@ -36,6 +36,7 @@ public class Gatekeeper {
             return tokenAuthorizer.handleExpiredToken();
         } catch (JwtException | IllegalArgumentException ex) {
             // An IAE exception is thrown when we are using the HS algorithm but the token is signed with RSA
+            log.info("Auth token rejected: {}", ex.getMessage());
             return tokenAuthorizer.handleInvalidToken();
         }
     }
