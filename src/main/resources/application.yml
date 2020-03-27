@@ -380,3 +380,33 @@ outbound:
   basic:
     username: mssng
     password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
+---
+spring:
+  profiles: public-beacon-info
+gatekeeper:
+  gateways:
+    - id: becon-info
+      inbound:
+        path: /beacon
+      outbound:
+        base-url: ${gatekeeper.beaconServer.url}
+        authentication:
+          method: basic-auth-client-authenticator
+          args:
+            username: ${outbound.basic.username}
+            password: ${outbound.basic.password}
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /
+  beaconServer:
+    url: http://httpbin.org/anything/
+
+outbound:
+  # These are the development credentials corresponding to the development credentials in beacon server.
+  # These are NOT used in any deployments. They are only meant for quick developer startup.
+  basic:
+    username: mssng
+    password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
