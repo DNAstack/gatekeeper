@@ -166,6 +166,22 @@ spring:
   profiles: all-access-beacon
 gatekeeper:
   gateways:
+    - id: becon-info
+      inbound:
+        path: /beacon
+      outbound:
+        base-url: ${gatekeeper.beaconServer.url}
+        authentication:
+          method: basic-auth-client-authenticator
+          args:
+            username: ${outbound.basic.username}
+            password: ${outbound.basic.password}
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /
     - id: beacon
       inbound:
         path: /beacon/{*path}
@@ -229,6 +245,22 @@ spring:
   profiles: controlled-access-beacon
 gatekeeper:
   gateways:
+    - id: becon-info
+      inbound:
+        path: /beacon
+      outbound:
+        base-url: ${gatekeeper.beaconServer.url}
+        authentication:
+          method: basic-auth-client-authenticator
+          args:
+            username: ${outbound.basic.username}
+            password: ${outbound.basic.password}
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /
     - id: beacon
       inbound:
         path: /beacon/{*path}
@@ -302,6 +334,22 @@ spring:
   profiles: registered-beacon-with-controlled-metadata
 gatekeeper:
   gateways:
+    - id: becon-info
+      inbound:
+        path: /beacon
+      outbound:
+        base-url: ${gatekeeper.beaconServer.url}
+        authentication:
+          method: basic-auth-client-authenticator
+          args:
+            username: ${outbound.basic.username}
+            password: ${outbound.basic.password}
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /
     - id: beacon
       inbound:
         path: /beacon/{*path}
@@ -374,36 +422,6 @@ gatekeeper:
       controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}/{path}
 # NOTE we don't want to have basic credentials anymore. We'd prefer to have gatekeeper as a sidecar intercepting
 # all network traffic
-outbound:
-  # These are the development credentials corresponding to the development credentials in beacon server.
-  # These are NOT used in any deployments. They are only meant for quick developer startup.
-  basic:
-    username: mssng
-    password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
----
-spring:
-  profiles: public-beacon-info
-gatekeeper:
-  gateways:
-    - id: becon-info
-      inbound:
-        path: /beacon
-      outbound:
-        base-url: ${gatekeeper.beaconServer.url}
-        authentication:
-          method: basic-auth-client-authenticator
-          args:
-            username: ${outbound.basic.username}
-            password: ${outbound.basic.password}
-      acl:
-        - id: public
-          authorization:
-            method: public-authorizer
-          outbound:
-            path: /
-  beaconServer:
-    url: http://httpbin.org/anything/
-
 outbound:
   # These are the development credentials corresponding to the development credentials in beacon server.
   # These are NOT used in any deployments. They are only meant for quick developer startup.
