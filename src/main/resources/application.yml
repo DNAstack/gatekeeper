@@ -312,6 +312,7 @@ gatekeeper:
         base-url: ${gatekeeper.outbound.url}
         filters:
           - PreserveHostHeader
+          - ForwardedHeader
       acl:
         - id: controlled
           authorization:
