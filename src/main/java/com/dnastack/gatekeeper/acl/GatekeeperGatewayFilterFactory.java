@@ -16,7 +16,6 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -42,10 +41,6 @@ import static java.lang.String.format;
 public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperConfig.Gateway> {
 
     public static final Pattern PATH_VARIABLE_PATTERN = Pattern.compile("\\{([a-zA-Z]*)\\}");
-
-    // Can't default to empty list when we specify value in application.yml
-    @Value("${gatekeeper.token.audiences:#{T(java.util.Collections).emptyList()}}")
-    private List<String> acceptedAudiences;
 
     @Autowired
     private TokenParser tokenParser;
