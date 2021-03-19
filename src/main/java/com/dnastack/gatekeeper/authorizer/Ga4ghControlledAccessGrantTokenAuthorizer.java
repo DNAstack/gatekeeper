@@ -1,18 +1,21 @@
 package com.dnastack.gatekeeper.authorizer;
 
 import com.dnastack.gatekeeper.config.JsonDefinedFactory;
+import com.dnastack.gatekeeper.token.InboundTokens;
+import com.dnastack.gatekeeper.token.TokenParser;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -20,19 +23,20 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
 
     private final GrantConfig grant;
     private final ObjectMapper objectMapper;
+    private final TokenParser tokenParser;
 
-    public Ga4ghControlledAccessGrantTokenAuthorizer(GrantConfig grant, ObjectMapper objectMapper) {
+    public Ga4ghControlledAccessGrantTokenAuthorizer(GrantConfig grant, ObjectMapper objectMapper, TokenParser tokenParser) {
         this.grant = grant;
         this.objectMapper = objectMapper;
+        this.tokenParser = tokenParser;
         Objects.requireNonNull(this.grant, "Must specify ControlledAccessGrant config");
         Objects.requireNonNull(this.grant.getValue(), "Must specify required ControlledAccessGrants value");
         Objects.requireNonNull(this.grant.getSource(), "Must specify required ControlledAccessGrants source");
     }
 
     @Override
-    public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
-        log.info("Validated signature of inbound token {}", jws);
-        final Claims claims = jws.getBody();
+    public AuthorizationDecision handleTokens(InboundTokens tokens) {
+        final Claims claims = tokenParser.parseAndValidateJws(tokens.getIdToken()).getBody();
 
         final Ga4ghControlledAccessGrants controlledAccessGrants = objectMapper.convertValue(claims.get("ga4gh"), Ga4ghControlledAccessGrants.class);
         final Stream<Ga4ghClaim> givenControlledAccessGrants = Optional.ofNullable(controlledAccessGrants)
@@ -84,9 +88,12 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
     @Component("ga4gh-controlled-access-grant-authorizer")
     public static class ScopeTokenAuthorizerFactory extends JsonDefinedFactory<GrantConfig, TokenAuthorizer> {
 
+        private final TokenParser tokenParser;
+
         @Autowired
-        public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {
+        public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper, TokenParser tokenParser) {
             super(objectMapper, log);
+            this.tokenParser = tokenParser;
         }
 
         @Override
@@ -96,7 +103,7 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
 
         @Override
         protected TokenAuthorizer create(Ga4ghControlledAccessGrantTokenAuthorizer.GrantConfig grantConfig) {
-            return new Ga4ghControlledAccessGrantTokenAuthorizer(grantConfig, objectMapper);
+            return new Ga4ghControlledAccessGrantTokenAuthorizer(grantConfig, objectMapper, tokenParser);
         }
 
     }

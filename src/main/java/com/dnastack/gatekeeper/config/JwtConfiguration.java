@@ -3,7 +3,6 @@ package com.dnastack.gatekeeper.config;
 import com.dnastack.gatekeeper.token.ConfiguredSigningKeyResolver;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SigningKeyResolver;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -22,12 +21,13 @@ public class JwtConfiguration {
     }
 
     @Bean
-    public JwtParser jwtParser() {
+    public JwtParser jwtParser(ConfiguredSigningKeyResolver resolver) {
         return Jwts.parser()
-                   .setSigningKeyResolver(resolver());
+                   .setSigningKeyResolver(resolver);
     }
 
-    private SigningKeyResolver resolver() {
+    @Bean
+    public ConfiguredSigningKeyResolver resolver() {
         return new ConfiguredSigningKeyResolver(beanFactory, inboundConfiguration.getJwt());
     }
 

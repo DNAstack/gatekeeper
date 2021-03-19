@@ -59,6 +59,11 @@ public abstract class JsonDefinedFactory<C, T> {
         return create(convertedConfig);
     }
 
+    public static <T> T createFactoryInstance(BeanFactory beanFactory, String beanName, Map<String, ?> args) {
+        final JsonDefinedFactory<?, T> factory = lookupFactory(beanFactory, beanName);
+        return factory.create(args);
+    }
+
     @SuppressWarnings("unchecked")
     public static <T, F extends JsonDefinedFactory<?, T>> F lookupFactory(BeanFactory beanFactory, String factoryBeanName) throws BeansException {
         return (F) beanFactory.getBean(factoryBeanName, JsonDefinedFactory.class);

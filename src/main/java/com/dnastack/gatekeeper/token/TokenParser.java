@@ -4,14 +4,11 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.constraints.NotEmpty;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,31 +17,40 @@ import static java.lang.String.format;
 @Slf4j
 @Component
 @Validated
-@ConfigurationProperties(prefix = "gatekeeper.token")
 public class TokenParser {
 
+    private final JwtParser jwtParser;
+    private final TokenConfig tokenConfig;
+
     @Autowired
-    private JwtParser jwtParser;
-    @NotEmpty
-    @Setter
-    private List<String> audiences;
+    public TokenParser(JwtParser jwtParser, TokenConfig tokenConfig) {
+        this.jwtParser = jwtParser;
+        this.tokenConfig = tokenConfig;
+    }
 
 
     public Jws<Claims> parseAndValidateJws(String authToken) throws JwtException, IllegalArgumentException {
         final Jws<Claims> jws = jwtParser.parseClaimsJws(authToken);
 
-        final String tokenAudience = Optional.of(jws)
+        final Object rawTokenAudience = Optional.of(jws)
                 .map(Jws::getBody)
-                .map(Claims::getAudience)
+                .map(claims -> claims.get("aud"))
                 .orElseThrow(() -> new JwtException(
                         "No audience specified in token."));
-        final Optional<String> validAudience = audiences.stream()
-                .filter(tokenAudience::equals)
+        final List<String> givenAudiences;
+        if (rawTokenAudience instanceof List) {
+            givenAudiences = (List<String>) rawTokenAudience;
+        } else {
+            givenAudiences = List.of(rawTokenAudience.toString());
+        }
+
+        final Optional<String> validAudience = tokenConfig.getAudiences().stream()
+                .filter(givenAudiences::contains)
                 .findAny();
         if (validAudience.isPresent()) {
             log.debug("Token audience successfully validated [{}]", validAudience.get());
         } else {
-            throw new JwtException(format("Token audience [%s] is invalid.", tokenAudience));
+            throw new JwtException(format("Token audience %s is invalid.", givenAudiences));
         }
 
 

@@ -1,5 +1,6 @@
 package com.dnastack.gatekeeper.config;
 
+import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +25,7 @@ public class GatekeeperConfig {
         private BaseOutboundRequestConfig outbound;
         private List<AccessControlItem> acl;
         @JsonProperty("auth-challenge")
-        private String authChallenge;
+        private AuthenticationChallengeHandler.Config authChallenge;
     }
 
     @Data
@@ -39,9 +40,20 @@ public class GatekeeperConfig {
     public static class BaseOutboundRequestConfig {
         @JsonProperty("base-url")
         private String baseUrl;
+        @JsonProperty("authorization-failure")
+        private AuthorizationFailureConfig authorizationFailure;
         private OutboundAuthentication authentication;
         @Builder.Default
         private List<FilterDefinition> filters = new ArrayList<>();
+    }
+
+    @Data
+    @Builder(toBuilder = true)
+    @RequiredArgsConstructor
+    @AllArgsConstructor
+    public static class AuthorizationFailureConfig {
+        private String method;
+        private Map<String, Object> args;
     }
 
     @Data

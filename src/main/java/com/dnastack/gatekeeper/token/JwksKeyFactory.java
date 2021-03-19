@@ -10,7 +10,6 @@ import feign.Feign;
 import feign.RequestLine;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
-import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtException;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +62,7 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
         }
 
         @Override
-        public Key resolve(InboundConfiguration.IssuerConfig issuerConfig, JwsHeader header) {
+        public Key resolve(InboundConfiguration.IssuerConfig issuerConfig, String givenKeyId) {
             final String issuer = issuerConfig.getIssuer();
             final OidcClient oidcClient = Feign.builder()
                                                .encoder(new JacksonEncoder(objectMapper))
@@ -75,12 +74,12 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
                 final Jwks jwks = oidcClient.getJwks(URI.create(jwksUri));
 
                 final RsaJwk foundJwk;
-                if (header.getKeyId() != null) {
+                if (givenKeyId != null) {
                     foundJwk = jwks.getKeys()
                                    .stream()
-                                   .filter(jwk -> Objects.equals(header.getKeyId(), jwk.getKeyId()))
+                                   .filter(jwk -> Objects.equals(givenKeyId, jwk.getKeyId()))
                                    .findFirst()
-                                   .orElseThrow(() -> new JwtException(format("No key from issuer [%s] found for key ID [%s]", issuer, header.getKeyId())));
+                                   .orElseThrow(() -> new JwtException(format("No key from issuer [%s] found for key ID [%s]", issuer, givenKeyId)));
                 } else if (jwks.getKeys().size() == 1) {
                     foundJwk = jwks.getKeys().get(0);
                 } else {
@@ -94,6 +93,7 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
                 return RsaKeyHelper.createPublicKey(modulus, publicExponent);
             });
         }
+
     }
 
     @Data

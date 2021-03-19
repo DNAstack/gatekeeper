@@ -2,7 +2,6 @@ package com.dnastack.gatekeeper.routing;
 
 import com.dnastack.gatekeeper.acl.GatekeeperGatewayFilterFactory;
 import com.dnastack.gatekeeper.config.GatekeeperConfig;
-import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.dnastack.gatekeeper.gateway.FilterDefinitionLoader;
 import com.dnastack.gatekeeper.gateway.PrependUriPathGatewayFilterFactory;
 import com.dnastack.gatekeeper.gateway.StripAuthHeaderGatewayFilterFactory;
@@ -21,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.dnastack.gatekeeper.config.JsonDefinedFactory.lookupFactory;
+import static com.dnastack.gatekeeper.config.JsonDefinedFactory.createFactoryInstance;
 
 @Slf4j
 @Configuration
@@ -57,11 +56,10 @@ public class AclRouter {
             final String authenticatorName = Optional.ofNullable(outboundAuthentication)
                                                      .map(GatekeeperConfig.OutboundAuthentication::getMethod)
                                                      .orElse("noop-client-authenticator");
-            final JsonDefinedFactory<?, GatewayFilter> clientAuthenticatorFactory = lookupFactory(beanFactory, authenticatorName);
             final Map<String, Object> args = Optional.ofNullable(outboundAuthentication)
                                                      .map(GatekeeperConfig.OutboundAuthentication::getArgs)
                                                      .orElseGet(Map::of);
-            final GatewayFilter outboundAuthFilter = clientAuthenticatorFactory.create(args);
+            final GatewayFilter outboundAuthFilter = createFactoryInstance(beanFactory, authenticatorName, args);
 
             final GatewayFilter gatekeeperFilter = gatekeeperGatewayFilterFactory.apply(gateway);
             final List<GatewayFilter> customFilters = filterDefinitionLoader.loadFilters(gateway.getId(), gateway.getOutbound().getFilters());

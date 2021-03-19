@@ -84,7 +84,8 @@ gatekeeper:
             # Uses path variable from inbound path expression
             path: protected/{path}
       # Since this route is meant for frontend applications, it redirects users to an auth server configured below.
-      auth-challenge: LoginRedirect
+      auth-challenge:
+        handler: LoginRedirect
     # For `/noop/**` route. Maps:
     # * Authorized requests to ${BASE_URL}/** with no side-effects.
     # Other routes above strip auth headers. This route uses an outbound handler that perserves the authorization header.
@@ -118,6 +119,9 @@ gatekeeper:
     token-url: http://localhost:8081/oauth/token
     client-id: gatekeeper
     client-secret: gatekeepersecret
+  token:
+    audiences:
+      - http://localhost:8082
 
 logging:
   level:
@@ -213,7 +217,8 @@ gatekeeper:
               scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.internal.beaconServer.controlled-prefix}
-      auth-challenge: NonInteractive
+      auth-challenge:
+        handler: NonInteractive
   beaconServer:
     url: http://httpbin.org/anything/
     public-prefix: public
@@ -277,7 +282,8 @@ gatekeeper:
               scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.internal.beaconServer.controlled-prefix}
-      auth-challenge: NonInteractive
+      auth-challenge:
+        handler: NonInteractive
   beaconServer:
     url: http://httpbin.org/anything/
     controlled-prefix: protected
@@ -321,7 +327,8 @@ gatekeeper:
               scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.outbound.path-prefix}/{path}
-      auth-challenge: NonInteractive
+      auth-challenge:
+        handler: NonInteractive
   outbound:
     url: "http://localhost:8081"
     path-prefix: ""
@@ -377,7 +384,8 @@ gatekeeper:
               scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.internal.beaconServer.controlled-prefix}
-      auth-challenge: NonInteractive
+      auth-challenge:
+        handler: NonInteractive
     - id: metadata
       inbound:
         path: /metadata/{*path}
@@ -399,7 +407,8 @@ gatekeeper:
               scopes: ${gatekeeper.token.authorization.scopes}
           outbound:
             path: ${gatekeeper.internal.metadataServer.controlled-prefix}
-      auth-challenge: LoginRedirect
+      auth-challenge:
+        handler: LoginRedirect
   metadataServer:
     url: http://httpbin.org/anything/
     controlled-prefix: protected
@@ -429,3 +438,50 @@ outbound:
   basic:
     username: mssng
     password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
+
+---
+
+spring:
+  profiles: policy-protected-ui
+
+gatekeeper:
+  gateways:
+    - id: ui
+      inbound:
+        path: ${gatekeeper.inbound.prefix}/{*path}
+      outbound:
+        base-url: http://httpbin.org/anything/
+        authorization-failure:
+          method: error-html-failure-handler
+          args:
+            html: ${gatekeeper.failure-html}
+      acl:
+        - id: controlled
+          authorization:
+            method: ${gatekeeper.token.authorization.method}
+            args:
+              scopes: ${gatekeeper.token.authorization.scopes}
+              resource: ${gatekeeper.token.authorization.resource}
+              actions: ${gatekeeper.token.authorization.actions}
+          outbound:
+            path: /{path}
+      auth-challenge:
+        handler: LoginRedirect
+        args:
+          scopes: ${gatekeeper.token.authorization.scopes}
+          resource: http://localhost:8082
+  token:
+    authorization:
+      method: wallet-policy-authorizer
+      scopes: openid
+      resource: http://localhost:8082
+      actions: gatekeeper:test
+  failure-html: |
+    <html>
+      <title>Unauthorized</title>
+      <body>
+        You are not authorized to view this deployment.
+      </body>
+    </html>
+  inbound:
+    prefix: /ui

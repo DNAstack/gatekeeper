@@ -4,14 +4,18 @@ import com.dnastack.gatekeeper.authorizer.TokenAuthorizer;
 import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.AuthorizationDecision;
 import com.dnastack.gatekeeper.authorizer.TokenAuthorizer.StandardDecisions;
 import com.dnastack.gatekeeper.challenge.AuthenticationChallengeHandler;
+import com.dnastack.gatekeeper.challenge.AuthorizationFailureHandler;
 import com.dnastack.gatekeeper.challenge.LoginRedirectAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.challenge.NonInteractiveAuthenticationChallengeHandler;
 import com.dnastack.gatekeeper.config.GatekeeperConfig;
+import com.dnastack.gatekeeper.config.GatekeeperConfig.AuthorizationFailureConfig;
 import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.dnastack.gatekeeper.config.TokenAuthorizationConfig;
+import com.dnastack.gatekeeper.token.InboundTokens;
 import com.dnastack.gatekeeper.token.TokenParser;
-import com.dnastack.gatekeeper.util.TokenUtil;
 import com.dnastack.gatekeeper.util.WebFluxUtil;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.BeanFactory;
@@ -41,6 +45,10 @@ import static java.lang.String.format;
 public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory<GatekeeperConfig.Gateway> {
 
     public static final Pattern PATH_VARIABLE_PATTERN = Pattern.compile("\\{([a-zA-Z]*)\\}");
+    private static final AuthorizationFailureConfig FALLBACK_AUTHORIZATION_HANDLER_CONFIG = AuthorizationFailureConfig.builder()
+        .method("text/plain-failure-handler")
+        .args(Map.of())
+        .build();
 
     @Autowired
     private TokenParser tokenParser;
@@ -73,28 +81,40 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                       .map(accessControlItem -> Map.entry(accessControlItem.getId(), createTokenAuthorizer(accessControlItem.getAuthorization())))
                       .collect(Collectors.toConcurrentMap(Map.Entry::getKey, Map.Entry::getValue));
         final AuthenticationChallengeHandler authenticationChallengeHandler = createUnauthenticatedTokenHandler(config);
-        return (exchange, chain) -> doFilter(config, authorizersByAclItemId, authenticationChallengeHandler, exchange, chain);
+
+        final AuthorizationFailureHandler authorizationFailureHandler = createAuthorizationFailureHandler(config);
+        return (exchange, chain) -> doFilter(config, authorizersByAclItemId, authenticationChallengeHandler, authorizationFailureHandler, exchange, chain);
+    }
+
+    private AuthorizationFailureHandler createAuthorizationFailureHandler(GatekeeperConfig.Gateway config) {
+        final AuthorizationFailureConfig authorizationFailureConfig = config.getOutbound().getAuthorizationFailure() != null ? config.getOutbound()
+            .getAuthorizationFailure() : FALLBACK_AUTHORIZATION_HANDLER_CONFIG;
+        final String failureHandlerBeanName = authorizationFailureConfig.getMethod();
+        final Map<String, Object> failureHandlerArgs = authorizationFailureConfig.getArgs();
+        return JsonDefinedFactory.createFactoryInstance(beanFactory, failureHandlerBeanName, failureHandlerArgs);
     }
 
     private TokenAuthorizer createTokenAuthorizer(TokenAuthorizationConfig config) {
-        final JsonDefinedFactory<?, TokenAuthorizer> factory = JsonDefinedFactory.lookupFactory(beanFactory, config.getMethod());
-        return factory.create(config.getArgs());
+        return JsonDefinedFactory.createFactoryInstance(beanFactory, config.getMethod(), config.getArgs());
     }
 
     private AuthenticationChallengeHandler createUnauthenticatedTokenHandler(GatekeeperConfig.Gateway config) {
-        final String authChallengeHandler = config.getAuthChallenge();
+        final AuthenticationChallengeHandler.Config authChallengeConfig = config.getAuthChallenge();
         final String handlerNameSuffix = "AuthenticationChallengeHandler";
         final String fallbackHandlerName = NonInteractiveAuthenticationChallengeHandler.class.getSimpleName()
                                                                                              .replace(handlerNameSuffix,
                                                                                                       "");
-        final String handlerName = (authChallengeHandler != null ?
-                authChallengeHandler :
-                fallbackHandlerName) + handlerNameSuffix;
+        final String handlerName = (authChallengeConfig.getHandler() != null ?
+            authChallengeConfig.getHandler() :
+            fallbackHandlerName) + handlerNameSuffix;
 
         final AuthenticationChallengeHandler handler;
         // TODO use bean lookup
         if (handlerName.equals(LoginRedirectAuthenticationChallengeHandler.class.getSimpleName())) {
-            handler = new LoginRedirectAuthenticationChallengeHandler();
+            final LoginRedirectAuthenticationChallengeHandler.Config args = new ObjectMapper().configure(
+                DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES, false)
+                .convertValue(authChallengeConfig.getArgs(), LoginRedirectAuthenticationChallengeHandler.Config.class);
+            handler = new LoginRedirectAuthenticationChallengeHandler(args);
         } else if (handlerName.equals(NonInteractiveAuthenticationChallengeHandler.class.getSimpleName())) {
             handler = new NonInteractiveAuthenticationChallengeHandler();
         } else {
@@ -104,15 +124,19 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         return handler;
     }
 
-    private Mono<Void> doFilter(GatekeeperConfig.Gateway config,
-                                Map<String, TokenAuthorizer> authorizersByAclItemId, AuthenticationChallengeHandler authenticationChallengeHandler,
-                                ServerWebExchange exchange,
-                                GatewayFilterChain chain) {
+    private Mono<Void> doFilter(
+        GatekeeperConfig.Gateway config,
+        Map<String, TokenAuthorizer> authorizersByAclItemId,
+        AuthenticationChallengeHandler authenticationChallengeHandler,
+        AuthorizationFailureHandler authorizationFailureHandler,
+        ServerWebExchange exchange,
+        GatewayFilterChain chain
+    ) {
         final ServerHttpRequest request = exchange.getRequest();
         final ServerHttpResponse response = exchange.getResponse();
-        final Optional<String> foundAuthToken;
+        final Optional<InboundTokens> foundTokens;
         try {
-            foundAuthToken = TokenUtil.extractAuthToken(request);
+            foundTokens = InboundTokens.extractAuthToken(request);
         } catch (UnroutableRequestException e) {
             return WebFluxUtil.rewriteResponse(response, e.getStatus(), e.getMessage());
         }
@@ -125,12 +149,12 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
             for (GatekeeperConfig.AccessControlItem accessControlItem : config.getAcl()) {
                 final TokenAuthorizer tokenAuthorizer = authorizersByAclItemId.get(accessControlItem.getId());
                 if (tokenAuthorizer == null) {
-                    throw new IllegalStateException(format("Unitialized authorizer for gateway/accessItem [%s/%s]",
+                    throw new IllegalStateException(format("Uninitialized authorizer for gateway/accessItem [%s/%s]",
                                                            config.getId(),
                                                            accessControlItem.getId()));
                 }
-                Gatekeeper gatekeeper = new Gatekeeper(tokenParser, tokenAuthorizer);
-                AuthorizationDecision curDecision = gatekeeper.determineAccessGrant(foundAuthToken.orElse(null));
+                Gatekeeper gatekeeper = new Gatekeeper(tokenAuthorizer);
+                AuthorizationDecision curDecision = gatekeeper.determineAccessGrant(foundTokens.orElse(null));
                 if (curDecision.isAllowed()) {
                     lastSuccessfulAuth = Map.entry(accessControlItem, curDecision);
                 } else {
@@ -162,7 +186,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
             if (shouldDoAuthenticationChallenge(authHints)) {
                 return doFullAuthChallenge(authenticationChallengeHandler, exchange, response);
             } else {
-                return noContentForbidden(response, selectedAccessControlItem);
+                return authorizationFailureHandler.handleFailure(exchange, selectedAccessControlItem);
             }
         } else {
             if (shouldDoAuthenticationChallenge(authHints)) {
@@ -226,14 +250,6 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
                          StandardDecisions.EXPIRED_CREDENTIALS,
                          StandardDecisions.MALFORMED_CREDENTIALS)
                      .anyMatch(decisionInfos::contains);
-    }
-
-    private Mono<Void> noContentForbidden(ServerHttpResponse response, GatekeeperConfig.AccessControlItem accessControlItem) {
-        log.debug("Prefix is empty. Sending 403 auth challenge.");
-        return WebFluxUtil.rewriteResponse(response, 403,
-                                           format("%s requests not accepted.",
-                                                   accessControlItem.getId()));
-
     }
 
     @Data

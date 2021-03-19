@@ -1,36 +1,32 @@
 package com.dnastack.gatekeeper.authorizer;
 
 import com.dnastack.gatekeeper.config.JsonDefinedFactory;
+import com.dnastack.gatekeeper.token.InboundTokens;
+import com.dnastack.gatekeeper.token.TokenParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static java.util.stream.Collectors.toList;
 
 @Slf4j
+@RequiredArgsConstructor
 public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
-    private List<String> requiredScopeList;
-
-    public ScopeTokenAuthorizer(List<String> requiredScopeList) {
-        this.requiredScopeList = requiredScopeList;
-    }
+    private final List<String> requiredScopeList;
+    private final TokenParser tokenParser;
 
     @Override
-    public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
-        log.info("Validated signature of inbound token {}", jws);
-        final Claims claims = jws.getBody();
+    public AuthorizationDecision handleTokens(InboundTokens tokens) {
+        final Claims claims = tokenParser.parseAndValidateJws(Optional.ofNullable(tokens.getAccessToken()).orElse(tokens.getIdToken())).getBody();
 
         //1. Get the list of scopes from authtoken
         //2. Make sure that it contains all the scopes that are there in REQUIRED_SCOPE env variable
@@ -78,9 +74,12 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
     @Component("scope-authorizer")
     public static class ScopeTokenAuthorizerFactory extends JsonDefinedFactory<ScopeTokenAuthorizerFactory.Config, TokenAuthorizer> {
 
+        private final TokenParser tokenParser;
+
         @Autowired
-        public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper) {
+        public ScopeTokenAuthorizerFactory(ObjectMapper objectMapper, TokenParser tokenParser) {
             super(objectMapper, log);
+            this.tokenParser = tokenParser;
         }
 
         @Override
@@ -90,7 +89,7 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
         @Override
         protected TokenAuthorizer create(Config config) {
-            return new ScopeTokenAuthorizer(config.scopeList());
+            return new ScopeTokenAuthorizer(config.scopeList(), tokenParser);
         }
 
         @Data

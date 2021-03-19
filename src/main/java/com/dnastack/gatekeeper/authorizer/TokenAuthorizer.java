@@ -1,7 +1,9 @@
 package com.dnastack.gatekeeper.authorizer;
 
+import com.dnastack.gatekeeper.token.InboundTokens;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.JwtException;
 import lombok.Builder;
 import lombok.Singular;
 import lombok.Value;
@@ -13,9 +15,9 @@ public interface TokenAuthorizer {
     @Builder
     @Value
     class AuthorizationDecision {
-        private boolean allowed;
+        boolean allowed;
         @Singular
-        private List<DecisionInfo> decisionInfos;
+        List<DecisionInfo> decisionInfos;
     }
 
     interface DecisionInfo {
@@ -43,12 +45,18 @@ public interface TokenAuthorizer {
 
     @Value
     class CustomDecisionInfo implements DecisionInfo {
-        private String headerValue;
+        String headerValue;
 
         @Override
         public String getHeaderValue() {
             return headerValue;
         }
+    }
+
+    @Value
+    class ValidatedToken {
+        String rawValue;
+        Jws<Claims> jws;
     }
 
     default AuthorizationDecision handleNoToken() {
@@ -72,5 +80,9 @@ public interface TokenAuthorizer {
                                     .build();
     }
 
-    AuthorizationDecision handleValidToken(Jws<Claims> jws);
+    /**
+     *
+     * @param tokens Will only be called when at least one of the access token or identity token are not null.
+     */
+    AuthorizationDecision handleTokens(InboundTokens tokens) throws JwtException, IllegalArgumentException;
 }

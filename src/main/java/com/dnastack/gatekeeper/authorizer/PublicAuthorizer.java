@@ -1,10 +1,9 @@
 package com.dnastack.gatekeeper.authorizer;
 
 import com.dnastack.gatekeeper.config.JsonDefinedFactory;
+import com.dnastack.gatekeeper.token.InboundTokens;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -29,7 +28,7 @@ public class PublicAuthorizer implements TokenAuthorizer {
     }
 
     @Override
-    public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
+    public AuthorizationDecision handleTokens(InboundTokens tokens) {
         return handleNoToken();
     }
 

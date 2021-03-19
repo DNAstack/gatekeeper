@@ -2,11 +2,13 @@ package com.dnastack.gatekeeper.authorizer;
 
 import com.dnastack.gatekeeper.config.Account;
 import com.dnastack.gatekeeper.config.JsonDefinedFactory;
+import com.dnastack.gatekeeper.token.InboundTokens;
+import com.dnastack.gatekeeper.token.TokenParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import java.util.stream.Stream;
 import static java.util.stream.Collectors.toList;
 
 @Slf4j
+@RequiredArgsConstructor
 public class EmailTokenAuthorizer implements TokenAuthorizer {
 
     public static final TypeReference<List<Account>> LIST_OF_ACCOUNT_TYPE = new TypeReference<>() {
@@ -26,19 +29,13 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
 
     public static final String GOOGLE_ISSUER_URL = "https://accounts.google.com";
 
-    private List<String> emailWhitelist;
-    private ObjectMapper objectMapper;
-
-    public EmailTokenAuthorizer(List<String> emailWhitelist, ObjectMapper objectMapper) {
-        this.emailWhitelist = emailWhitelist;
-        this.objectMapper = objectMapper;
-    }
-
+    private final List<String> emailWhitelist;
+    private final ObjectMapper objectMapper;
+    private final TokenParser tokenParser;
 
     @Override
-    public AuthorizationDecision handleValidToken(Jws<Claims> jws) {
-        log.info("Validated signature of inbound token {}", jws);
-        final Claims claims = jws.getBody();
+    public AuthorizationDecision handleTokens(InboundTokens tokens) {
+        final Claims claims = tokenParser.parseAndValidateJws(tokens.getIdToken()).getBody();
 
         Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
         final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);
@@ -78,9 +75,12 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
     @Component("email-authorizer")
     public static class EmailTokenAuthorizerFactory extends JsonDefinedFactory<EmailTokenAuthorizerFactory.Config, TokenAuthorizer> {
 
+        private final TokenParser tokenParser;
+
         @Autowired
-        public EmailTokenAuthorizerFactory(ObjectMapper objectMapper) {
+        public EmailTokenAuthorizerFactory(ObjectMapper objectMapper, TokenParser tokenParser) {
             super(objectMapper, log);
+            this.tokenParser = tokenParser;
         }
 
         @Override
@@ -90,7 +90,7 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
 
         @Override
         protected TokenAuthorizer create(Config config) {
-            return new EmailTokenAuthorizer(config.whitelistItems(), objectMapper);
+            return new EmailTokenAuthorizer(config.whitelistItems(), objectMapper, tokenParser);
         }
 
         @Data
