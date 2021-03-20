@@ -484,4 +484,4 @@ gatekeeper:
       </body>
     </html>
   inbound:
-    prefix: /ui
+    prefix: ""
