@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
@@ -35,7 +36,8 @@ public class EmailTokenAuthorizer implements TokenAuthorizer {
 
     @Override
     public AuthorizationDecision handleTokens(InboundTokens tokens) {
-        final Claims claims = tokenParser.parseAndValidateJws(tokens.getIdToken()).getBody();
+        // In the beacon network, sometimes ID tokens are used in place of access tokens
+        final Claims claims = tokenParser.parseAndValidateJws(Optional.ofNullable(tokens.getIdToken()).orElse(tokens.getAccessToken())).getBody();
 
         Stream<String> googleEmails = extractGoogleEmailAddresses(claims);
         final boolean hasWhitelistedEmailAddress = googleEmails.anyMatch(this::isWhitelisted);

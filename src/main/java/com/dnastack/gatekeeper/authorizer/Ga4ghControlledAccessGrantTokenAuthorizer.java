@@ -36,7 +36,8 @@ public class Ga4ghControlledAccessGrantTokenAuthorizer implements TokenAuthorize
 
     @Override
     public AuthorizationDecision handleTokens(InboundTokens tokens) {
-        final Claims claims = tokenParser.parseAndValidateJws(tokens.getIdToken()).getBody();
+        // In the beacon network, sometimes ID tokens are used in place of access tokens
+        final Claims claims = tokenParser.parseAndValidateJws(Optional.ofNullable(tokens.getIdToken()).orElse(tokens.getAccessToken())).getBody();
 
         final Ga4ghControlledAccessGrants controlledAccessGrants = objectMapper.convertValue(claims.get("ga4gh"), Ga4ghControlledAccessGrants.class);
         final Stream<Ga4ghClaim> givenControlledAccessGrants = Optional.ofNullable(controlledAccessGrants)

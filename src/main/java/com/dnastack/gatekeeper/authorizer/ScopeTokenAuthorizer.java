@@ -26,6 +26,7 @@ public class ScopeTokenAuthorizer implements TokenAuthorizer {
 
     @Override
     public AuthorizationDecision handleTokens(InboundTokens tokens) {
+        // In the beacon network, sometimes ID tokens are used in place of access tokens
         final Claims claims = tokenParser.parseAndValidateJws(Optional.ofNullable(tokens.getAccessToken()).orElse(tokens.getIdToken())).getBody();
 
         //1. Get the list of scopes from authtoken

@@ -19,6 +19,7 @@ public class ValidTokenAuthorizer implements TokenAuthorizer {
 
     @Override
     public AuthorizationDecision handleTokens(InboundTokens tokens) {
+        // In the beacon network, sometimes ID tokens are used in place of access tokens
         tokenParser.parseAndValidateJws(Optional.ofNullable(tokens.getAccessToken()).orElse(tokens.getIdToken()));
 
         return AuthorizationDecision.builder()
