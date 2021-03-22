@@ -104,7 +104,7 @@ public class GatekeeperGatewayFilterFactory extends AbstractGatewayFilterFactory
         final String fallbackHandlerName = NonInteractiveAuthenticationChallengeHandler.class.getSimpleName()
                                                                                              .replace(handlerNameSuffix,
                                                                                                       "");
-        final String handlerName = (authChallengeConfig.getHandler() != null ?
+        final String handlerName = (authChallengeConfig != null && authChallengeConfig.getHandler() != null ?
             authChallengeConfig.getHandler() :
             fallbackHandlerName) + handlerNameSuffix;
 
