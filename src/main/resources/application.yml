@@ -450,7 +450,7 @@ gatekeeper:
       inbound:
         path: ${gatekeeper.inbound.prefix}/{*path}
       outbound:
-        base-url: http://httpbin.org/anything/
+        base-url: ${gatekeeper.outbound.url}
         authorization-failure:
           method: error-html-failure-handler
           args:
@@ -469,7 +469,7 @@ gatekeeper:
         handler: LoginRedirect
         args:
           scopes: ${gatekeeper.token.authorization.scopes}
-          resource: http://localhost:8082
+          resource: ${gatekeeper.token.authorization.resource}
   token:
     authorization:
       method: wallet-policy-authorizer
@@ -485,3 +485,5 @@ gatekeeper:
     </html>
   inbound:
     prefix: ""
+  outbound:
+    url: http://httpbin.org/anything/
