@@ -5,10 +5,13 @@ import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.dnastack.gatekeeper.token.InboundTokens;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -27,16 +30,25 @@ public class PolicyTokenAuthorizer implements TokenAuthorizer {
         final String requiredResource = config.getResource();
         final Set<String> requiredActions = new HashSet<>(config.actionList());
         final List<String> requiredScopes = config.scopeList();
-        if (permissionChecker.hasPermissions(tokens.getAccessToken(), requiredScopes, requiredResource, requiredActions)) {
+
+        try {
+            permissionChecker.checkPermissions(tokens.getAccessToken(), requiredScopes, Map.of(requiredResource, requiredActions));
             return AuthorizationDecision.builder()
-                                        .allowed(true)
-                                        .decisionInfo(StandardDecisions.ACCESS_GRANTED)
-                                        .build();
-        } else {
-            return AuthorizationDecision.builder()
-                                        .allowed(false)
-                                        .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
-                                        .build();
+                .allowed(true)
+                .decisionInfo(StandardDecisions.ACCESS_GRANTED)
+                .build();
+        } catch (Exception exception){
+            if (exception instanceof ExpiredJwtException || exception.getCause() instanceof ExpiredJwtException){
+                return AuthorizationDecision.builder()
+                    .allowed(false)
+                    .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
+                    .build();
+            } else {
+                return AuthorizationDecision.builder()
+                    .allowed(false)
+                    .decisionInfo(StandardDecisions.INSUFFICIENT_CREDENTIALS)
+                    .build();
+            }
         }
     }
 
