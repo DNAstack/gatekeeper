@@ -3,6 +3,7 @@ package com.dnastack.gatekeeper.routing;
 import com.dnastack.gatekeeper.token.TokenParser;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,21 @@ public class LoginRouter {
     @Bean
     RouterFunction<ServerResponse> apiLogin() {
         return RouterFunctions.route(GET("/api/identity/login"), this::handleLoginRequest);
+    }
+
+    @Bean
+    RouterFunction<ServerResponse> apiLogout(){
+        return RouterFunctions.route(GET("/api/identity/logout"), this::handleLogoutRequest);
+    }
+
+    private Mono<ServerResponse> handleLogoutRequest(ServerRequest serverRequest){
+        final String state = serverRequest.queryParam("state").orElse("/");
+        final URI targetUri = URI.create(getExternalPath(serverRequest,state));
+        final BodyBuilder builder = temporaryRedirect(targetUri);
+
+        builder.cookie(ResponseCookie.from(ACCESS_TOKEN_COOKIE_NAME,"expired").maxAge(Duration.ZERO).domain(targetUri.getHost()).path("/").build());
+        builder.cookie(ResponseCookie.from(ID_TOKEN_COOKIE_NAME,"expired").maxAge(Duration.ZERO).domain(targetUri.getHost()).path("/").build());
+        return builder.build();
     }
 
     private Mono<ServerResponse> handleLoginRequest(ServerRequest serverRequest) {

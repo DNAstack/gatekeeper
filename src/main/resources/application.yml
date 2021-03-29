@@ -480,7 +480,7 @@ gatekeeper:
     <html>
       <title>Unauthorized</title>
       <body>
-        You are not authorized to view this deployment.
+        You are not authorized to view this deployment. To login with different credentials click <a href="/api/identity/logout">here</a>
       </body>
     </html>
   inbound:
