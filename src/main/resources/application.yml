@@ -487,3 +487,92 @@ gatekeeper:
     prefix: ""
   outbound:
     url: http://httpbin.org/anything/
+
+---
+
+spring:
+  profiles: policy-protected-presto-ui
+
+gatekeeper:
+  gateways:
+    - id: ui-root
+      inbound:
+        path: ${gatekeeper.inbound.prefix}/ui/
+      outbound:
+        base-url: ${gatekeeper.outbound.url}
+        authorization-failure:
+          method: error-html-failure-handler
+          args:
+            html: ${gatekeeper.failure-html}
+      acl:
+        - id: controlled-root
+          authorization:
+            method: ${gatekeeper.token.authorization.method}
+            args:
+              scopes: ${gatekeeper.token.authorization.scopes}
+              resource: ${gatekeeper.token.authorization.resource}
+              actions: ${gatekeeper.token.authorization.actions}
+          outbound:
+            path: /ui/
+      auth-challenge:
+        handler: LoginRedirect
+        args:
+          scopes: ${gatekeeper.token.authorization.scopes}
+          resource: ${gatekeeper.token.authorization.resource}
+    - id: ui-subpaths
+      inbound:
+        path: ${gatekeeper.inbound.prefix}/ui/{path}/{*subpath}
+      outbound:
+        base-url: ${gatekeeper.outbound.url}
+        authorization-failure:
+          method: error-html-failure-handler
+          args:
+            html: ${gatekeeper.failure-html}
+      acl:
+        - id: controlled-subpaths
+          authorization:
+            method: ${gatekeeper.token.authorization.method}
+            args:
+              scopes: ${gatekeeper.token.authorization.scopes}
+              resource: ${gatekeeper.token.authorization.resource}
+              actions: ${gatekeeper.token.authorization.actions}
+          outbound:
+            path: /ui/{path}/{subpath}
+      auth-challenge:
+        handler: LoginRedirect
+        args:
+          scopes: ${gatekeeper.token.authorization.scopes}
+          resource: ${gatekeeper.token.authorization.resource}
+    - id: public-access
+      inbound:
+        path: ${gatekeeper.inbound.prefix}/{*path}
+      outbound:
+        base-url: ${gatekeeper.outbound.url}
+        filters:
+          - PreserveHostHeader
+          - ForwardedHeader
+      acl:
+        - id: public
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /{path}
+      auth-challenge:
+        handler: NonInteractive
+  token:
+    authorization:
+      method: wallet-policy-authorizer
+      scopes: openid
+      resource: http://localhost:8082
+      actions: gatekeeper:test
+  failure-html: |
+    <html>
+      <title>Unauthorized</title>
+      <body>
+        You are not authorized to view this deployment. To login with different credentials click <a href="/api/identity/logout">here</a>
+      </body>
+    </html>
+  inbound:
+    prefix: ""
+  outbound:
+    url: http://httpbin.org/anything/
