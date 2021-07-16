@@ -495,22 +495,6 @@ spring:
 
 gatekeeper:
   gateways:
-    - id: public-access-ui
-      inbound:
-        path: ${gatekeeper.inbound.prefix}/ui
-      outbound:
-        base-url: ${gatekeeper.outbound.url}
-        filters:
-          - PreserveHostHeader
-          - ForwardedHeader
-      acl:
-        - id: public
-          authorization:
-            method: public-authorizer
-          outbound:
-            path: /ui
-      auth-challenge:
-        handler: NonInteractive
     - id: ui-root
       inbound:
         path: ${gatekeeper.inbound.prefix}/ui/
@@ -535,6 +519,22 @@ gatekeeper:
         args:
           scopes: ${gatekeeper.token.authorization.scopes}
           resource: ${gatekeeper.token.authorization.resource}
+    - id: ui-public-access
+      inbound:
+        path: ${gatekeeper.inbound.prefix}/ui
+      outbound:
+        base-url: ${gatekeeper.outbound.url}
+        filters:
+          - PreserveHostHeader
+          - ForwardedHeader
+      acl:
+        - id: public-ui
+          authorization:
+            method: public-authorizer
+          outbound:
+            path: /ui
+      auth-challenge:
+        handler: NonInteractive
     - id: ui-subpaths
       inbound:
         path: ${gatekeeper.inbound.prefix}/ui/{*path}
