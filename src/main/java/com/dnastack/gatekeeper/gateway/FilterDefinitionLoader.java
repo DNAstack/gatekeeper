@@ -3,10 +3,12 @@ package com.dnastack.gatekeeper.gateway;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.gateway.event.FilterArgsEvent;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.OrderedGatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
+import org.springframework.cloud.gateway.support.ConfigurationService;
 import org.springframework.cloud.gateway.support.ConfigurationUtils;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.ConversionService;
@@ -25,11 +27,13 @@ public class FilterDefinitionLoader {
     private final Map<String, GatewayFilterFactory> gatewayFilterFactories = new HashMap<>();
     private final BeanFactory beanFactory;
     private final ConversionService conversionService;
+    private final ConfigurationService configurationService;
 
     @Autowired
     public FilterDefinitionLoader(List<GatewayFilterFactory> gatewayFilterFactories,
-                                  ConversionService conversionService, BeanFactory beanFactory) {
+                                  ConversionService conversionService, ConfigurationService configurationService, BeanFactory beanFactory) {
         this.conversionService = conversionService;
+        this.configurationService = configurationService;
         this.beanFactory = beanFactory;
         gatewayFilterFactories.forEach(factory -> this.gatewayFilterFactories.put(factory.name(), factory));
     }
@@ -57,12 +61,11 @@ public class FilterDefinitionLoader {
                                                                log.debug("RouteDefinition " + id + " applying filter " + args + " to " + definition.getName());
                                                            }
 
-                                                           Map<String, Object> properties = factory.shortcutType().normalize(args, factory, parser, this.beanFactory);
-
-                                                           Object configuration = factory.newConfig();
-
-                                                           ConfigurationUtils.bind(configuration, properties, factory.shortcutFieldPrefix(),
-                                                                                   definition.getName(), null, conversionService);
+                                                           Object configuration = this.configurationService.with(factory)
+                                                               .name(definition.getName())
+                                                               .properties(definition.getArgs())
+                                                               .eventFunction((bound, properties) -> new FilterArgsEvent(this, id, (Map)properties))
+                                                               .bind();
 
                                                            return factory.apply(configuration);
                                                        })

@@ -22,8 +22,9 @@ public class JwtConfiguration {
 
     @Bean
     public JwtParser jwtParser(ConfiguredSigningKeyResolver resolver) {
-        return Jwts.parser()
-                   .setSigningKeyResolver(resolver);
+        return Jwts.parserBuilder()
+            .setSigningKeyResolver(resolver)
+            .build();
     }
 
     @Bean

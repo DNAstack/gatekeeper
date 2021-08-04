@@ -121,7 +121,7 @@ public class LoginRouter {
                                      idpTokenRequest(request, code).flatMap(response -> downstreamTokenResponse(request,
                                                                                                                 response)))
                         .orElseGet(() -> badRequest().contentType(TEXT_PLAIN)
-                                                     .syncBody("Token request requires 'code' parameter."));
+                                                     .bodyValue("Token request requires 'code' parameter."));
     }
 
     private Mono<ServerResponse> downstreamTokenResponse(ServerRequest request, ClientResponse response) {
@@ -134,13 +134,13 @@ public class LoginRouter {
                            });
         } else {
             logTokenFailureInDetail(response);
-            return badRequest().contentType(TEXT_PLAIN).syncBody("Failed to acquire token.");
+            return badRequest().contentType(TEXT_PLAIN).bodyValue("Failed to acquire token.");
         }
     }
 
     private Mono<ServerResponse> failedUserTokenResponse(ClientResponse response) {
         logTokenFailureInDetail(response);
-        return status(INTERNAL_SERVER_ERROR).syncBody("Failed to parse token.");
+        return status(INTERNAL_SERVER_ERROR).bodyValue("Failed to parse token.");
     }
 
     private Mono<ServerResponse> successfulUserTokenResponse(ServerRequest request, TokenResponse tokens) {
@@ -222,7 +222,7 @@ public class LoginRouter {
                         .post()
                         .header("Authorization", authHeaderValue)
                         .contentType(APPLICATION_FORM_URLENCODED)
-                        .syncBody(formData)
+                        .bodyValue(formData)
                         .exchange();
     }
 

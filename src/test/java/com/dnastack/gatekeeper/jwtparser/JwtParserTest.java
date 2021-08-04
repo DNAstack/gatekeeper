@@ -37,13 +37,14 @@ public class JwtParserTest {
             throw new AssertionError(ex);
         }
 
-        Jwts.parser()
+        Jwts.parserBuilder()
             .setSigningKeyResolver(new SigningKeyResolverAdapter() {
                 @Override
                 public Key resolveSigningKey(JwsHeader header, Claims claims) {
                     return publicKey;
                 }
             })
+            .build()
             .parse(tokenWithWrongAlgorithm);
     }
 }
