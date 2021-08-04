@@ -8,6 +8,7 @@ import java.util.Map;
 
 import static com.dnastack.gatekeeper.acl.GatekeeperGatewayFilterFactory.computeOutboundPath;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 public class GatekeeperGatewayFilterFactoryTest {
@@ -23,7 +24,7 @@ public class GatekeeperGatewayFilterFactoryTest {
         accessControlItem.getOutbound().setPath("foo/bar/{path}");
 
         final String path = computeOutboundPath(config, accessControlItem, Map.of("path", "banana/slam"));
-        assertThat(path, equalTo("/foo/bar/banana/slam"));
+        assertEquals(path, "/foo/bar/banana/slam");
     }
 
     @Test
@@ -37,6 +38,6 @@ public class GatekeeperGatewayFilterFactoryTest {
         accessControlItem.getOutbound().setPath("{path}");
 
         final String path = computeOutboundPath(config, accessControlItem, Map.of("path", ""));
-        assertThat(path, equalTo("/"));
+        assertEquals(path, "/");
     }
 }
