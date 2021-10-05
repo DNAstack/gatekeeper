@@ -127,6 +127,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Metrics -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- Automatically excluded from repackaged archive ("fat jar") by spring-boot-maven-plugin -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

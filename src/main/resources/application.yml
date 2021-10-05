@@ -493,6 +493,15 @@ gatekeeper:
 ---
 
 spring:
+  profiles: metrics-enabled
+
+management:
+  endpoints:
+    web.exposure.include: info, health, prometheus
+
+---
+
+spring:
   profiles: policy-protected-presto-ui
 
 gatekeeper:
