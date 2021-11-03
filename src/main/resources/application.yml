@@ -603,3 +603,81 @@ gatekeeper:
     prefix: ""
   outbound:
     url: http://httpbin.org/anything/
+
+---
+
+spring:
+  profiles: policy-protected-prometheus-grafana-ui
+
+gatekeeper:
+  gateways:
+    - id: prometheus
+      inbound:
+        path: ${gatekeeper.prometheus.inbound.prefix}/{*path}
+      outbound:
+        base-url: ${gatekeeper.prometheus.outbound.url}
+        authorization-failure:
+          method: error-html-failure-handler
+          args:
+            html: ${gatekeeper.failure-html}
+      acl:
+        - id: controlled
+          authorization:
+            method: ${gatekeeper.token.authorization.method}
+            args:
+              scopes: ${gatekeeper.token.authorization.scopes}
+              resource: ${gatekeeper.token.authorization.resource}
+              actions: ${gatekeeper.token.authorization.actions}
+          outbound:
+            path: /{path}
+      auth-challenge:
+        handler: LoginRedirect
+        args:
+          scopes: ${gatekeeper.token.authorization.scopes}
+          resource: ${gatekeeper.token.authorization.resource}
+    - id: grafana
+      inbound:
+        path: ${gatekeeper.inbound.prefix}/{*path}
+      outbound:
+        base-url: ${gatekeeper.outbound.url}
+        authorization-failure:
+          method: error-html-failure-handler
+          args:
+            html: ${gatekeeper.failure-html}
+      acl:
+        - id: controlled
+          authorization:
+            method: ${gatekeeper.token.authorization.method}
+            args:
+              scopes: ${gatekeeper.token.authorization.scopes}
+              resource: ${gatekeeper.token.authorization.resource}
+              actions: ${gatekeeper.token.authorization.actions}
+          outbound:
+            path: /{path}
+      auth-challenge:
+        handler: LoginRedirect
+        args:
+          scopes: ${gatekeeper.token.authorization.scopes}
+          resource: ${gatekeeper.token.authorization.resource}
+  token:
+    authorization:
+      method: wallet-policy-authorizer
+      scopes: openid
+      resource: http://localhost:8082
+      actions: gatekeeper:test
+  failure-html: |
+    <html>
+      <title>Unauthorized</title>
+      <body>
+        You are not authorized to view this deployment. To login with different credentials click <a href="/api/identity/logout">here</a>
+      </body>
+    </html>
+  inbound:
+    prefix: ""
+  outbound:
+    url: http://httpbin.org/anything/
+  prometheus:
+    inbound:
+      prefix: /prometheus
+    outbound:
+      url: http://localhost:9090
