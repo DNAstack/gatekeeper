@@ -54,7 +54,7 @@ public class LoginRouter {
     @Value("${gatekeeper.auth-server.authorize-url}")
     private String metadataServerAuthUrl;
 
-    @Value("${gatekeeper.auth-server.authorize-url.prompt}")
+    @Value("${gatekeeper.auth-server.authorize-prompt:#{null}}")
     private String prompt;
 
     @Autowired
@@ -65,6 +65,7 @@ public class LoginRouter {
 
     @Bean
     RouterFunction<ServerResponse> apiLogin() {
+        log.info("Prompt is "+prompt);
         return RouterFunctions.route(GET("/api/identity/login"), this::handleLoginRequest);
     }
 
