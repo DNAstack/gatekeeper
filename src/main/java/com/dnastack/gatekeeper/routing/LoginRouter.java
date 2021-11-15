@@ -54,6 +54,9 @@ public class LoginRouter {
     @Value("${gatekeeper.auth-server.authorize-url}")
     private String metadataServerAuthUrl;
 
+    @Value("${gatekeeper.auth-server.authorize-url.prompt}")
+    private String prompt;
+
     @Autowired
     private TokenParser tokenParser;
 
@@ -80,6 +83,14 @@ public class LoginRouter {
         return builder.build();
     }
 
+    private void appendLoginRequestParams(ServerRequest serverRequest, final UriComponentsBuilder authUriBuilder){
+        serverRequest.queryParams()
+                     .keySet()
+                     .stream()
+                     .filter(param -> !"state".equals(param) && !"scope".equals(param))
+                     .forEach(param -> authUriBuilder.queryParam(param, serverRequest.queryParams().get(param).toArray()));
+
+    }
     private Mono<ServerResponse> handleLoginRequest(ServerRequest serverRequest) {
         final Optional<String> foundToken = Optional.ofNullable(serverRequest.cookies()
                                                                              .getFirst(ACCESS_TOKEN_COOKIE_NAME))
@@ -90,18 +101,16 @@ public class LoginRouter {
             return temporaryRedirect(URI.create(targetUri)).build();
         } else {
             final String scopes = serverRequest.queryParam("scope").orElse("openid+ga4gh_passport_v1");
-            final UriComponentsBuilder authUriBuilder = UriComponentsBuilder.fromUriString(metadataServerAuthUrl)
+            UriComponentsBuilder authUriBuilder = UriComponentsBuilder.fromUriString(metadataServerAuthUrl)
                 .queryParam("response_type", "code")
                 .queryParam("redirect_uri", redirectUri(serverRequest))
                 .queryParam("client_id", clientId)
                 .queryParam("state", state)
                 .queryParam("scope", scopes);
-            serverRequest.queryParams()
-                .keySet()
-                .stream()
-                .filter(param -> !"state".equals(param) && !"scope".equals(param))
-                .forEach(param -> authUriBuilder.queryParam(param, serverRequest.queryParams().get(param).toArray()));
-
+            if(prompt != null){
+                authUriBuilder = authUriBuilder.queryParam("prompt", prompt);
+            }
+            appendLoginRequestParams(serverRequest, authUriBuilder);
             return temporaryRedirect(authUriBuilder.build().toUri()).build();
         }
     }
