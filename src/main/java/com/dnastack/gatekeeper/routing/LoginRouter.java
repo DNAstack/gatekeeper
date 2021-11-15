@@ -65,7 +65,6 @@ public class LoginRouter {
 
     @Bean
     RouterFunction<ServerResponse> apiLogin() {
-        log.info("Prompt is "+prompt);
         return RouterFunctions.route(GET("/api/identity/login"), this::handleLoginRequest);
     }
 
