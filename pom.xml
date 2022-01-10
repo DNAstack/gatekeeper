@@ -23,6 +23,8 @@
         <wallet-token-validator.version>1.0-49-gf294f5c</wallet-token-validator.version>
         <jjwt.version>0.11.2</jjwt.version>
         <feign.version>10.5.1</feign.version>
+        <logback-extensions.version>1.0.0</logback-extensions.version>
+        <logback.contrib.version>0.1.5</logback.contrib.version>
     </properties>
 
     <dependencyManagement>
@@ -131,6 +133,18 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Parseable Stackdriver Logs -->
+        <dependency>
+            <groupId>com.dnastack</groupId>
+            <artifactId>logback-extensions</artifactId>
+            <version>${logback-extensions.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback.contrib</groupId>
+            <artifactId>logback-jackson</artifactId>
+            <version>${logback.contrib.version}</version>
         </dependency>
 
         <!-- Automatically excluded from repackaged archive ("fat jar") by spring-boot-maven-plugin -->
