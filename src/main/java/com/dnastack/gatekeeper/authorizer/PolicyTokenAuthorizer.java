@@ -39,10 +39,7 @@ public class PolicyTokenAuthorizer implements TokenAuthorizer {
                 .build();
         } catch (Exception exception){
             if (exception instanceof ExpiredJwtException || exception.getCause() instanceof ExpiredJwtException){
-                return AuthorizationDecision.builder()
-                    .allowed(false)
-                    .decisionInfo(StandardDecisions.EXPIRED_CREDENTIALS)
-                    .build();
+                return handleExpiredToken();
             } else {
                 return AuthorizationDecision.builder()
                     .allowed(false)
