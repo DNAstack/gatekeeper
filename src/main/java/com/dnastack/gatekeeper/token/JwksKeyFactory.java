@@ -12,6 +12,7 @@ import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import io.jsonwebtoken.JwtException;
 import lombok.Data;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,12 +32,9 @@ import static java.lang.String.format;
 @Component("oidc-jwks")
 public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, ConfiguredSigningKeyResolver.KeyResolver> {
 
-    private final JwksKeyResolver keyResolver;
-
     @Autowired
     public JwksKeyFactory(ObjectMapper objectMapper) {
         super(objectMapper, log);
-        keyResolver = new JwksKeyResolver(objectMapper);
     }
 
     @Override
@@ -54,7 +52,7 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
     }
 
     private static class JwksKeyResolver implements ConfiguredSigningKeyResolver.KeyResolver {
-        private final ConcurrentMap<String, Key> keysByIssuer = new ConcurrentHashMap<>();
+        private final ConcurrentMap<CompoundKeyId, Key> keysByIssuer = new ConcurrentHashMap<>();
         private final ObjectMapper objectMapper;
 
         private JwksKeyResolver(ObjectMapper objectMapper) {
@@ -68,7 +66,8 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
                                                .encoder(new JacksonEncoder(objectMapper))
                                                .decoder(new JacksonDecoder(objectMapper))
                                                .target(OidcClient.class, issuer);
-            return keysByIssuer.computeIfAbsent(issuerConfig.getIssuer(), key -> {
+            final CompoundKeyId compoundKeyId = new CompoundKeyId(issuerConfig.getIssuer(), givenKeyId);
+            return keysByIssuer.computeIfAbsent(compoundKeyId, key -> {
                 final OidcConfiguration oidcConfig = oidcClient.getConfiguration();
                 final String jwksUri = oidcConfig.getJwksUri();
                 final Jwks jwks = oidcClient.getJwks(URI.create(jwksUri));
@@ -80,10 +79,13 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
                                    .filter(jwk -> Objects.equals(givenKeyId, jwk.getKeyId()))
                                    .findFirst()
                                    .orElseThrow(() -> new JwtException(format("No key from issuer [%s] found for key ID [%s]", issuer, givenKeyId)));
-                } else if (jwks.getKeys().size() == 1) {
-                    foundJwk = jwks.getKeys().get(0);
                 } else {
-                    throw new JwtException(format("ambiguous key: token from issuer [%s] has no kid and JWKS endpoint contains multiple keys", issuer));
+                    // Not sure that we need this anymore? It's probably from a time before we did JWKS properly.
+                    if (jwks.getKeys().size() == 1) {
+                        foundJwk = jwks.getKeys().get(0);
+                    } else {
+                        throw new JwtException(format("ambiguous key: token from issuer [%s] has no kid and JWKS endpoint contains multiple keys", issuer));
+                    }
                 }
 
                 final Base64.Decoder decoder = Base64.getUrlDecoder();
@@ -94,6 +96,12 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
             });
         }
 
+    }
+
+    @Value
+    private static class CompoundKeyId {
+        String issuer;
+        String kid;
     }
 
     @Data
