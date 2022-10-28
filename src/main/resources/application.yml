@@ -1,6 +1,10 @@
 server:
   port: 8082
 
+management:
+  endpoints:
+    web.exposure.include: info, health
+
 gatekeeper:
   app:
     url: http://localhost:8082
@@ -155,7 +159,9 @@ inbound:
 
 ---
 spring:
-  profiles: debug
+  config:
+    activate:
+      on-profile: debug
 logging:
   level:
     com.dnastack: DEBUG
@@ -169,7 +175,14 @@ logging:
     reactor.netty: TRACE
 ---
 spring:
-  profiles: all-access-beacon
+  config:
+    activate:
+      on-profile: all-access-beacon
+
+management:
+  endpoints:
+    web.exposure.include: info, health
+
 gatekeeper:
   gateways:
     - id: becon-info
@@ -249,7 +262,14 @@ outbound:
     password: 298d58c2-5c6f-49b6-851c-2b15ef21bd25
 ---
 spring:
-  profiles: controlled-access-beacon
+  config:
+    activate:
+      on-profile: controlled-access-beacon
+
+management:
+  endpoints:
+    web.exposure.include: info, health
+
 gatekeeper:
   gateways:
     - id: becon-info
@@ -304,13 +324,20 @@ gatekeeper:
       controlled-prefix: ${gatekeeper.beaconServer.controlled-prefix}/{path}
 ---
 spring:
-  profiles: hostpreserving-sidecar
+  config:
+    activate:
+      on-profile: hostpreserving-sidecar
   cloud:
     gateway:
       x-forwarded:
         proto-enabled: false
         port-enabled: false
         host-enabled: false
+
+management:
+  endpoints:
+    web.exposure.include: info, health
+
 gatekeeper:
   gateways:
     - id: hostpreserving-sidecar
@@ -341,7 +368,12 @@ gatekeeper:
 
 ---
 spring:
-  profiles: registered-beacon-with-controlled-metadata
+  config:
+    activate:
+      on-profile: registered-beacon-with-controlled-metadata
+management:
+  endpoints:
+    web.exposure.include: info, health
 gatekeeper:
   gateways:
     - id: becon-info
@@ -444,7 +476,13 @@ outbound:
 ---
 
 spring:
-  profiles: policy-protected-ui
+  config:
+    activate:
+      on-profile: policy-protected-ui
+
+management:
+  endpoints:
+    web.exposure.include: info, health
 
 gatekeeper:
   gateways:
@@ -493,7 +531,9 @@ gatekeeper:
 ---
 
 spring:
-  profiles: metrics-enabled
+  config:
+    activate:
+      on-profile: metrics-enabled
 
 management:
   endpoints:
@@ -502,7 +542,13 @@ management:
 ---
 
 spring:
-  profiles: policy-protected-presto-ui
+  config:
+    activate:
+      on-profile: policy-protected-presto-ui
+
+management:
+  endpoints:
+    web.exposure.include: info, health
 
 gatekeeper:
   gateways:
@@ -607,7 +653,13 @@ gatekeeper:
 ---
 
 spring:
-  profiles: policy-protected-prometheus-grafana-ui
+  config:
+    activate:
+      on-profile: policy-protected-prometheus-grafana-ui
+
+management:
+  endpoints:
+    web.exposure.include: info, health
 
 gatekeeper:
   gateways:
