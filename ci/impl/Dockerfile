@@ -6,7 +6,7 @@
 
 # This stage depends on a JDK image and uses Maven Wrapper to pull in dependencies and build the project
 # from source.
-FROM openjdk:11-jdk-slim AS build
+FROM azul/zulu-openjdk:17 AS build
 ARG APP_NAME
 ARG APP_VERSION
 
@@ -26,6 +26,9 @@ RUN ./mvnw -B versions:set -DnewVersion=${APP_VERSION}
 # Now add sources, which will bust the cache.
 ADD target/src ./src
 
+# We have to run this separately because the next command is run in offline mode
+RUN ./mvnw dependency-check:aggregate
+
 # If this step fails with an error like
 #     Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:2.22.1:test
 #     (default-test) on project xxx: Unable to generate classpath:
@@ -39,9 +42,9 @@ RUN ./mvnw -B -o package
 ## Stage 2: Package the runnable image
 ##
 
-# This stage uses a JRE rather than JDK because it doesn't have to build anything; it just runs the fat jar
+# This stage can use a JRE rather than JDK because it doesn't have to build anything; it just runs the fat jar
 # produced by the previous stage.
-FROM openjdk:11-slim
+FROM azul/zulu-openjdk:17
 ARG APP_NAME
 ARG APP_VERSION
 

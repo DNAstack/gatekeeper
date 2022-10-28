@@ -4,37 +4,80 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.dnastack.plenary</groupId>
+    <groupId>com.dnastack</groupId>
     <artifactId>gatekeeper</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.3.5.RELEASE</version>
+        <version>2.7.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>11</java.version>
-        <spring-cloud.version>Hoxton.SR7</spring-cloud.version>
-        <wallet-token-validator.version>1.0-49-gf294f5c</wallet-token-validator.version>
-        <jjwt.version>0.11.2</jjwt.version>
-        <feign.version>10.5.1</feign.version>
+        <java.version>17</java.version>
+        <spring-cloud.version>2021.0.4</spring-cloud.version>
+        <wallet-token-validator.version>1.0.4</wallet-token-validator.version>
+        <jjwt.version>0.11.5</jjwt.version>
+        <feign.version>11.10</feign.version>
         <logback-extensions.version>1.0.0</logback-extensions.version>
         <logback.contrib.version>0.1.5</logback.contrib.version>
+        <sonar.sources>src/main</sonar.sources>
+        <sonar.tests.inclusions>src/test</sonar.tests.inclusions>
+        <sonar.exclusions>ci</sonar.exclusions>
+        <sonar.dependencyCheck.jsonReportPath>target/dependency-check-report.json</sonar.dependencyCheck.jsonReportPath>
+        <sonar.dependencyCheck.htmlReportPath>target/dependency-check-report.html</sonar.dependencyCheck.htmlReportPath>
+        <sonar.dependencyCheck.summarize>true</sonar.dependencyCheck.summarize>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Put before spring to override spring feign versions -->
+            <dependency>
+                <groupId>io.github.openfeign</groupId>
+                <artifactId>feign-bom</artifactId>
+                <version>11.10</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- Pin versions to make the enforcer plugin happy -->
+            <dependency>
+                <groupId>org.jboss.logging</groupId>
+                <artifactId>jboss-logging-processor</artifactId>
+                <version>2.2.1.Final</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jboss.logging</groupId>
+                <artifactId>jboss-logging-annotations</artifactId>
+                <version>2.2.1.Final</version>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.core</artifactId>
+                <version>4.3.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk15on</artifactId>
+                <version>1.70</version>
+            </dependency>
+
+            <!-- Manage transitive dependencies with CVEs -->
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>1.33</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -73,7 +116,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.18</version>
+            <version>1.18.24</version>
         </dependency>
 
         <dependency>
@@ -101,7 +144,7 @@
 
         <dependency>
             <groupId>com.dnastack</groupId>
-            <artifactId>java-wallet-token-validator</artifactId>
+            <artifactId>dnastack-token-validator</artifactId>
             <version>${wallet-token-validator.version}</version>
         </dependency>
 
@@ -109,7 +152,7 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-jwt</artifactId>
-            <version>1.0.0.RELEASE</version>
+            <version>1.1.1.RELEASE</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -133,6 +176,7 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+            <version>1.9.5</version>
         </dependency>
 
         <!-- Parseable Stackdriver Logs -->
@@ -165,6 +209,24 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce</id>
+                        <configuration>
+                            <rules>
+                                <DependencyConvergence/>
+                            </rules>
+                        </configuration>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
@@ -178,6 +240,36 @@
                     <execution>
                         <goals>
                             <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>7.1.0</version>
+                <configuration>
+                    <format>ALL</format>
+                    <scanSet>
+                        <fileSet>
+                            <directory>src/main</directory>
+                        </fileSet>
+                    </scanSet>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.7.0.1746</version>
+                <configuration>
+
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>sonar</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sonar</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -249,12 +341,6 @@
             <id>spring-milestones</id>
             <name>Spring Milestones</name>
             <url>https://repo.spring.io/milestone</url>
-        </repository>
-        <!-- FIXME replace after library is open-sourced -->
-        <repository>
-            <id>github</id>
-            <name>DNAstack Private Github Packages</name>
-            <url>https://maven.pkg.github.com/DNAstack/dnastack-packages</url>
         </repository>
     </repositories>
 </project>

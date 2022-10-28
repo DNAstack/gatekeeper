@@ -1,7 +1,6 @@
 package com.dnastack.gatekeeper.gateway;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.event.FilterArgsEvent;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
@@ -9,9 +8,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.OrderedGatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory;
 import org.springframework.cloud.gateway.support.ConfigurationService;
-import org.springframework.cloud.gateway.support.ConfigurationUtils;
 import org.springframework.core.Ordered;
-import org.springframework.core.convert.ConversionService;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.stereotype.Component;
 
@@ -25,16 +22,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FilterDefinitionLoader {
     private final Map<String, GatewayFilterFactory> gatewayFilterFactories = new HashMap<>();
-    private final BeanFactory beanFactory;
-    private final ConversionService conversionService;
     private final ConfigurationService configurationService;
 
     @Autowired
-    public FilterDefinitionLoader(List<GatewayFilterFactory> gatewayFilterFactories,
-                                  ConversionService conversionService, ConfigurationService configurationService, BeanFactory beanFactory) {
-        this.conversionService = conversionService;
+    public FilterDefinitionLoader(List<GatewayFilterFactory> gatewayFilterFactories, ConfigurationService configurationService) {
         this.configurationService = configurationService;
-        this.beanFactory = beanFactory;
         gatewayFilterFactories.forEach(factory -> this.gatewayFilterFactories.put(factory.name(), factory));
     }
 
