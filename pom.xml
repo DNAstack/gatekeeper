@@ -20,7 +20,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>17</java.version>
         <spring-cloud.version>2021.0.4</spring-cloud.version>
-        <wallet-token-validator.version>1.0.4</wallet-token-validator.version>
+        <wallet-token-validator.version>1.0.5</wallet-token-validator.version>
         <jjwt.version>0.11.5</jjwt.version>
         <feign.version>11.10</feign.version>
         <logback-extensions.version>1.0.0</logback-extensions.version>

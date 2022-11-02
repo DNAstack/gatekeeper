@@ -1,5 +1,6 @@
 package com.dnastack.gatekeeper.token;
 
+import com.dnastack.auth.cache.CachingConcurrentHashMap;
 import com.dnastack.gatekeeper.config.InboundConfiguration;
 import com.dnastack.gatekeeper.config.JsonDefinedFactory;
 import com.dnastack.gatekeeper.config.RsaKeyHelper;
@@ -22,9 +23,8 @@ import java.net.URI;
 import java.security.Key;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import static java.lang.String.format;
 
@@ -44,19 +44,24 @@ public class JwksKeyFactory extends JsonDefinedFactory<JwksKeyFactory.Config, Co
 
     @Override
     protected ConfiguredSigningKeyResolver.KeyResolver create(Config config) {
-        return new JwksKeyResolver(objectMapper);
+        return new JwksKeyResolver(objectMapper, config);
     }
 
     @Data
     public static class Config {
+        private Long fetchjwksinterval;
     }
 
     private static class JwksKeyResolver implements ConfiguredSigningKeyResolver.KeyResolver {
-        private final ConcurrentMap<CompoundKeyId, Key> keysByIssuer = new ConcurrentHashMap<>();
+
+        private final static long DEFAULT_FETCH_JWKS_INTERVAL = 30_000; // 30s
+        private final Map<CompoundKeyId, Key> keysByIssuer;
         private final ObjectMapper objectMapper;
 
-        private JwksKeyResolver(ObjectMapper objectMapper) {
+        private JwksKeyResolver(ObjectMapper objectMapper, Config config) {
             this.objectMapper = objectMapper;
+            long fetchJwksInterval = (config != null && config.getFetchjwksinterval() != null) ? config.getFetchjwksinterval() : DEFAULT_FETCH_JWKS_INTERVAL;
+            this.keysByIssuer = new CachingConcurrentHashMap<>(fetchJwksInterval, CachingConcurrentHashMap.DEFAULT_MAX_SIZE, null);
         }
 
         @Override
