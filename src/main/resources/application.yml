@@ -733,3 +733,13 @@ gatekeeper:
       prefix: /prometheus
     outbound:
       url: http://localhost:9090
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: cloud
+
+  liquibase:
+    enabled: false
